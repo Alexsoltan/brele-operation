@@ -29,7 +29,6 @@ export default function RootLayout({
     <html lang="ru" className={`${rubik.variable} ${ibmPlexSans.variable}`}>
       <body className="bg-[#f3f3f1] font-body text-gray-950 antialiased">
         <AppSidebar />
-
         <main className="min-h-screen pl-64">
           <div className="mx-auto max-w-[1500px] px-8 py-8">{children}</div>
         </main>
