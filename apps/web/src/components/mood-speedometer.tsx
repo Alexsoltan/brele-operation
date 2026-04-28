@@ -1,55 +1,86 @@
 type SpeedometerValue = "bad" | "neutral" | "good" | "low" | "medium" | "high";
 
-const valueConfig: Record<SpeedometerValue, { label: string; angle: number; labelClassName: string; redSide: "left" | "right" }> = {
-  bad: { label: "Плохо", angle: -58, labelClassName: "text-red-700", redSide: "left" },
-  neutral: { label: "Нейтрально", angle: 0, labelClassName: "text-black", redSide: "left" },
-  good: { label: "Хорошо", angle: 58, labelClassName: "text-green-700", redSide: "left" },
-  low: { label: "Низкий", angle: -58, labelClassName: "text-green-700", redSide: "right" },
-  medium: { label: "Средний", angle: 0, labelClassName: "text-black", redSide: "right" },
-  high: { label: "Высокий", angle: 58, labelClassName: "text-red-700", redSide: "right" },
+const valueConfig: Record<
+  SpeedometerValue,
+  {
+    label: string;
+    angle: number;
+    labelClassName: string;
+    isRisk: boolean;
+  }
+> = {
+  bad: { label: "Плохо", angle: -48, labelClassName: "text-red-700", isRisk: false },
+  neutral: { label: "Нейтрально", angle: 0, labelClassName: "text-gray-950", isRisk: false },
+  good: { label: "Хорошо", angle: 48, labelClassName: "text-green-700", isRisk: false },
+  low: { label: "Низкий", angle: -48, labelClassName: "text-green-700", isRisk: true },
+  medium: { label: "Средний", angle: 0, labelClassName: "text-gray-950", isRisk: true },
+  high: { label: "Высокий", angle: 48, labelClassName: "text-red-700", isRisk: true },
 };
 
-export function MoodSpeedometer({ title, value }: { title: string; value: SpeedometerValue }) {
+export function MoodSpeedometer({
+  title,
+  value,
+}: {
+  title: string;
+  value: SpeedometerValue;
+}) {
   const config = valueConfig[value];
 
-  const leftColor = config.redSide === "left" ? "#fecaca" : "#bbf7d0";
-  const rightColor = config.redSide === "left" ? "#bbf7d0" : "#fecaca";
+  const gradient = config.isRisk
+    ? "conic-gradient(from 270deg, #bbf7d0 0deg, #bbf7d0 50deg, #e5e7eb 70deg, #e5e7eb 110deg, #fecaca 130deg, #fecaca 180deg, transparent 180deg, transparent 360deg)"
+    : "conic-gradient(from 270deg, #fecaca 0deg, #fecaca 50deg, #e5e7eb 70deg, #e5e7eb 110deg, #bbf7d0 130deg, #bbf7d0 180deg, transparent 180deg, transparent 360deg)";
 
   return (
-    <div className="rounded-3xl border border-gray-200 bg-white p-6">
-      <div className="text-sm font-medium text-gray-500">{title}</div>
+    <section className="rounded-3xl border border-gray-200 bg-white p-6">
+      <div className="font-heading text-lg font-semibold tracking-[-0.02em] text-gray-950">
+  {title}
+</div>
 
-      <div className="mt-3 flex justify-center">
-        <div className="relative h-40 w-64">
-          <svg viewBox="0 0 240 155" className="h-full w-full">
-            <path d="M 38 105 A 86 86 0 0 1 88 25" fill="none" stroke={leftColor} strokeWidth="20" strokeLinecap="round" />
-            <path d="M 88 25 A 86 86 0 0 1 152 25" fill="none" stroke="#e5e7eb" strokeWidth="20" strokeLinecap="round" />
-            <path d="M 152 25 A 86 86 0 0 1 202 105" fill="none" stroke={rightColor} strokeWidth="20" strokeLinecap="round" />
+      <div className="mt-5 flex flex-col items-center">
+        <div className="relative h-[132px] w-[210px] overflow-hidden">
+          <div
+            className="absolute left-0 top-0 h-[210px] w-[210px] rounded-full"
+            style={{
+              background: gradient,
+              WebkitMask:
+                "radial-gradient(farthest-side, transparent calc(100% - 24px), #000 calc(100% - 23px))",
+              mask:
+                "radial-gradient(farthest-side, transparent calc(100% - 24px), #000 calc(100% - 23px))",
+            }}
+          />
 
-            <line
-              x1="120"
-              y1="105"
-              x2="120"
-              y2="52"
-              stroke="#111827"
-              strokeWidth="4"
-              strokeLinecap="round"
+          <svg viewBox="0 0 210 132" className="absolute left-0 top-0 h-[132px] w-[210px]">
+            <g
               style={{
-                transformOrigin: "120px 105px",
                 transform: `rotate(${config.angle}deg)`,
+                transformOrigin: "105px 105px",
+                transition: "transform 260ms ease",
               }}
-            />
+            >
+              <line
+                x1="105"
+                y1="105"
+                x2="105"
+                y2="46"
+                stroke="#111827"
+                strokeWidth="8"
+                strokeLinecap="round"
+              />
+            </g>
 
-            <circle cx="120" cy="105" r="8" fill="#111827" />
+            <circle cx="105" cy="105" r="11" fill="#111827" />
           </svg>
+        </div>
 
-          <div className="absolute bottom-1 left-0 right-0 text-center">
-            <div className={`font-rubik text-2xl font-semibold leading-none ${config.labelClassName}`}>
-              {config.label}
-            </div>
-          </div>
+        <div
+          className={[
+            "-mt-2 font-heading text-2xl font-semibold leading-none tracking-[-0.03em]",
+            config.labelClassName,
+          ].join(" ")}
+        >
+          {config.label}
         </div>
       </div>
-    </div>
+    </section>
   );
 }
