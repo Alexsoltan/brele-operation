@@ -1,7 +1,5 @@
 import type { Mood, Risk } from "@/lib/mock-data";
 
-export type MeetingAnalysisStatus = "manual" | "analyzed";
-
 export type Meeting = {
   id: string;
   projectId: string;
@@ -10,12 +8,11 @@ export type Meeting = {
   meetingType: string;
   transcriptText?: string;
   summary: string;
-  problems?: string;
-  nextActions?: string;
+  highlights: string[];
   clientMood: Mood;
   teamMood: Mood;
   risk: Risk;
-  analysisStatus: MeetingAnalysisStatus;
+  analysisStatus: "analyzed" | "manual";
   modelName?: string;
   analyzedAt?: string;
 };
@@ -26,40 +23,22 @@ const seedMeetings: Meeting[] = [
   {
     id: "meeting-1",
     projectId: "alfa-mobile-app",
-    title: "Демо дизайна клиенту",
+    title: "Демо клиенту",
     date: "2026-04-24",
-    meetingType: "Демо клиенту",
+    meetingType: "demo",
     clientMood: "neutral",
     teamMood: "good",
     risk: "low",
     analysisStatus: "analyzed",
-    modelName: "mock-ai",
+    modelName: "seed",
     analyzedAt: "2026-04-24T12:00:00.000Z",
     summary:
       "Клиент в целом принял направление дизайна, но попросил отдельно уточнить сроки по мобильной версии и порядок согласования следующих экранов.",
-    problems:
-      "Не до конца зафиксированы сроки мобильной версии и порядок финального согласования экранов.",
-    nextActions:
-      "Отправить клиенту короткое summary с датами, ответственными и следующим контрольным синком.",
-  },
-  {
-    id: "meeting-2",
-    projectId: "alfa-mobile-app",
-    title: "Синк с клиентом",
-    date: "2026-04-17",
-    meetingType: "Синк с клиентом",
-    clientMood: "bad",
-    teamMood: "neutral",
-    risk: "medium",
-    analysisStatus: "analyzed",
-    modelName: "mock-ai",
-    analyzedAt: "2026-04-17T12:00:00.000Z",
-    summary:
-      "Клиент выразил недовольство темпом согласований и попросил больше прозрачности по срокам. Команда объяснила причины задержек, но не зафиксировала новый план.",
-    problems:
-      "Клиенту не хватает прозрачности по срокам и понятного плана дальнейших действий.",
-    nextActions:
-      "Зафиксировать новый план работ, отправить его клиенту и отдельно подтвердить даты ближайших результатов.",
+    highlights: [
+      "Клиент принял направление дизайна.",
+      "Нужно уточнить сроки мобильной версии.",
+      "Следующий шаг — согласование следующих экранов.",
+    ],
   },
 ];
 
