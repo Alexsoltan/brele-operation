@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Reset */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* Base styles */
+html,
+body {
+  height: 100%;
+  background: #f3f3f1;
+  color: #000;
+}
+
+/* Typography */
+.font-rubik {
+  font-family: var(--font-rubik);
+}
+
+.font-sans {
+  font-family: var(--font-ibm);
+}
+
+/* Smooth rendering */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
