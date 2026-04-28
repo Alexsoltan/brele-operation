@@ -1,33 +1,91 @@
-import { projects as mockProjects, type Mood, type ProjectStatus, type Risk } from "@/lib/mock-data";
+import type { Mood, Risk } from "@/lib/mock-data";
+
+export type ProjectStatus = "active" | "hold" | "archived";
 
 export type Project = {
   id: string;
   name: string;
+  client: string;
   clientName: string;
   description?: string;
-  status: ProjectStatus;
   clientMood: Mood;
   teamMood: Mood;
   risk: Risk;
+  lastMeeting: string;
   lastMeetingAt: string;
+  status: ProjectStatus;
 };
 
 const STORAGE_KEY = "brele-projects";
 
+const seedProjects: Project[] = [
+  {
+    id: "freeport",
+    name: "Freeport",
+    client: "ООО «Супертехнологии»",
+    clientName: "ООО «Супертехнологии»",
+    description: "",
+    clientMood: "neutral",
+    teamMood: "neutral",
+    risk: "low",
+    lastMeeting: "Нет встреч",
+    lastMeetingAt: "Нет встреч",
+    status: "active",
+  },
+  {
+    id: "alfa-mobile-app",
+    name: "Альфа-Банк — Mobile App",
+    client: "Альфа-Банк",
+    clientName: "Альфа-Банк",
+    description: "",
+    clientMood: "good",
+    teamMood: "good",
+    risk: "low",
+    lastMeeting: "24 Apr 2026",
+    lastMeetingAt: "24 Apr 2026",
+    status: "active",
+  },
+];
+
+function normalizeProject(project: Partial<Project>): Project {
+  const client = project.client ?? project.clientName ?? "Клиент не указан";
+  const lastMeeting = project.lastMeeting ?? project.lastMeetingAt ?? "Нет встреч";
+
+  return {
+    id: project.id ?? `project-${Date.now()}`,
+    name: project.name ?? "Новый проект",
+    client,
+    clientName: client,
+    description: project.description ?? "",
+    clientMood: project.clientMood ?? "neutral",
+    teamMood: project.teamMood ?? "neutral",
+    risk: project.risk ?? "low",
+    lastMeeting,
+    lastMeetingAt: lastMeeting,
+    status: project.status ?? "active",
+  };
+}
+
 export function getProjects(): Project[] {
-  if (typeof window === "undefined") return mockProjects;
+  if (typeof window === "undefined") return seedProjects;
 
   const saved = window.localStorage.getItem(STORAGE_KEY);
 
   if (!saved) {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(mockProjects));
-    return mockProjects;
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(seedProjects));
+    return seedProjects;
   }
 
   try {
-    return JSON.parse(saved) as Project[];
+    const parsed = JSON.parse(saved) as Partial<Project>[];
+    const normalized = parsed.map(normalizeProject);
+
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+
+    return normalized;
   } catch {
-    return mockProjects;
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(seedProjects));
+    return seedProjects;
   }
 }
 
@@ -40,22 +98,41 @@ export function createProject(input: {
   clientName: string;
   description: string;
 }): Project {
-  const project: Project = {
+  const project = normalizeProject({
     id: slugify(input.name),
     name: input.name,
+    client: input.clientName,
     clientName: input.clientName,
     description: input.description,
-    status: "active",
     clientMood: "neutral",
     teamMood: "neutral",
     risk: "low",
+    lastMeeting: "Нет встреч",
     lastMeetingAt: "Нет встреч",
-  };
+    status: "active",
+  });
 
   const nextProjects = [project, ...getProjects()];
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextProjects));
 
   return project;
+}
+
+export function updateProjectStatus(
+  projectId: string,
+  status: ProjectStatus,
+): Project[] {
+  const nextProjects = getProjects().map((project) =>
+    project.id === projectId ? { ...project, status } : project,
+  );
+
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextProjects));
+
+  return nextProjects;
+}
+
+export function getProjectsByStatus(status: ProjectStatus): Project[] {
+  return getProjects().filter((project) => project.status === status);
 }
 
 function slugify(value: string) {
