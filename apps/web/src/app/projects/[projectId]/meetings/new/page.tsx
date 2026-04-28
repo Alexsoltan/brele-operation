@@ -41,7 +41,7 @@ function riskLabel(value: Risk) {
 export default function NewMeetingPage() {
   const router = useRouter();
   const params = useParams();
-  const projectId = normalizeParam(params.projectId);
+const projectId = normalizeParam(params?.projectId);
 
   const [meetingType, setMeetingType] = useState("sync");
   const [date, setDate] = useState("");

@@ -7,12 +7,14 @@ const rubik = Rubik({
   subsets: ["latin", "cyrillic"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-heading",
+  display: "swap",
 });
 
 const ibmPlexSans = IBM_Plex_Sans({
   subsets: ["latin", "cyrillic"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-body",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -22,13 +24,14 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <html lang="ru" className={`${rubik.variable} ${ibmPlexSans.variable}`}>
       <body className="bg-[#f3f3f1] font-body text-gray-950 antialiased">
         <AppSidebar />
+
         <main className="min-h-screen pl-64">
           <div className="mx-auto max-w-[1500px] px-8 py-8">{children}</div>
         </main>

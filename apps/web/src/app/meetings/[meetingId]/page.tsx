@@ -44,12 +44,14 @@ function riskText(value: string) {
 
 export default function MeetingDetailsPage() {
   const params = useParams();
-  const meetingId = normalizeParam(params.meetingId);
+  const meetingId = normalizeParam(params?.meetingId);
 
   const [meeting, setMeeting] = useState<Meeting | undefined>();
   const [project, setProject] = useState<Project | undefined>();
 
   useEffect(() => {
+    if (!meetingId) return;
+
     const foundMeeting = getMeetingById(meetingId);
     setMeeting(foundMeeting);
 
@@ -62,10 +64,12 @@ export default function MeetingDetailsPage() {
     return (
       <div className="rounded-3xl border border-gray-200 bg-white p-8">
         <h1 className="text-xl font-semibold">Встреча не найдена</h1>
+
         <Link
           href="/meetings"
-          className="mt-4 inline-flex text-sm font-medium text-gray-500 hover:text-black"
+          className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-black"
         >
+          <ArrowLeft size={16} />
           Назад к встречам
         </Link>
       </div>
@@ -114,7 +118,7 @@ export default function MeetingDetailsPage() {
 
           <Link
             href={`/projects/${meeting.projectId}`}
-            className="rounded-2xl bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+            className="rounded-2xl bg-black px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800"
           >
             Открыть проект
           </Link>
@@ -125,14 +129,18 @@ export default function MeetingDetailsPage() {
         <div className="rounded-3xl border border-gray-200 bg-white p-5">
           <div className="text-sm text-gray-500">Настроение клиента</div>
           <div className="mt-3 flex items-center justify-between">
-            <div className="text-lg font-semibold">{moodText(meeting.clientMood)}</div>
+            <div className="text-lg font-semibold">
+              {moodText(meeting.clientMood)}
+            </div>
             <MoodBadge mood={meeting.clientMood} />
           </div>
         </div>
 
         <div className="rounded-3xl border border-gray-200 bg-white p-5">
           <div className="text-sm text-gray-500">Настроение команды</div>
-          <div className="mt-3 text-lg font-semibold">{moodText(meeting.teamMood)}</div>
+          <div className="mt-3 text-lg font-semibold">
+            {moodText(meeting.teamMood)}
+          </div>
         </div>
 
         <div className="rounded-3xl border border-gray-200 bg-white p-5">
@@ -147,7 +155,9 @@ export default function MeetingDetailsPage() {
       <section className="grid grid-cols-[1.2fr_0.8fr] gap-4">
         <div className="rounded-3xl border border-gray-200 bg-white p-6">
           <h2 className="text-lg font-semibold">Саммари</h2>
-          <p className="mt-4 text-sm leading-7 text-gray-600">{meeting.summary}</p>
+          <p className="mt-4 text-sm leading-7 text-gray-600">
+            {meeting.summary}
+          </p>
 
           {highlights.length > 0 ? (
             <div className="mt-7">
@@ -173,7 +183,9 @@ export default function MeetingDetailsPage() {
             <div>
               <div className="text-gray-500">Статус анализа</div>
               <div className="mt-1 font-medium">
-                {meeting.analysisStatus === "analyzed" ? "AI-анализ" : "Ручная оценка"}
+                {meeting.analysisStatus === "analyzed"
+                  ? "AI-анализ"
+                  : "Ручная оценка"}
               </div>
             </div>
 
