@@ -18,13 +18,21 @@ export function getProjects(): Project[] {
   if (typeof window === "undefined") return mockProjects;
 
   const saved = window.localStorage.getItem(STORAGE_KEY);
-  if (!saved) return mockProjects;
+
+  if (!saved) {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(mockProjects));
+    return mockProjects;
+  }
 
   try {
     return JSON.parse(saved) as Project[];
   } catch {
     return mockProjects;
   }
+}
+
+export function getProjectById(projectId: string): Project | undefined {
+  return getProjects().find((project) => project.id === projectId);
 }
 
 export function createProject(input: {

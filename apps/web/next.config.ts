@@ -1,5 +1,9 @@
+// apps/web/next.config.ts
+
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {};
+const nextConfig: NextConfig = {
+  reactStrictMode: true,
+};
 
 export default nextConfig;

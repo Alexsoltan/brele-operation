@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { AppSidebar } from "@/components/app-sidebar";
 import "./globals.css";
+import { AppSidebar } from "@/components/app-sidebar";
 
 export const metadata: Metadata = {
   title: "Brele Operations",
+  description: "Операционная панель Brele",
 };
 
 export default function RootLayout({
@@ -13,14 +14,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ru">
-      <body className="bg-[#f3f3f1] text-black">
-        <div className="flex min-h-screen">
-          <AppSidebar />
+      <body className="bg-[#f3f3f1] text-gray-950 antialiased">
+        <AppSidebar />
 
-          <main className="ml-72 flex-1 p-8">
-            {children}
-          </main>
-        </div>
+        <main className="min-h-screen pl-64">
+          <div className="mx-auto max-w-[1500px] px-8 py-8">{children}</div>
+        </main>
       </body>
     </html>
   );
