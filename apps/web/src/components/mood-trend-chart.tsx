@@ -1,19 +1,9 @@
-"use client";
-
-import { useState } from "react";
-
 type Mood = "good" | "neutral" | "bad";
 
 const moodToY: Record<Mood, number> = {
   good: 34,
   neutral: 74,
   bad: 114,
-};
-
-const moodToValue: Record<Mood, number> = {
-  good: 1,
-  neutral: 0,
-  bad: -1,
 };
 
 const updates: Record<number, { client: Mood; team: Mood }> = {
@@ -23,7 +13,7 @@ const updates: Record<number, { client: Mood; team: Mood }> = {
   24: { client: "good", team: "good" },
 };
 
-const days = Array.from({ length: 31 }, (_, i) => i + 1);
+const days = Array.from({ length: 31 }, (_, index) => index + 1);
 
 function buildSeries(key: "client" | "team") {
   let current: Mood = "neutral";
@@ -31,167 +21,122 @@ function buildSeries(key: "client" | "team") {
   return days.map((day, index) => {
     const update = updates[day];
 
-    if (update) current = update[key];
+    if (update) {
+      current = update[key];
+    }
 
     return {
       day,
       x: 42 + index * 18,
       y: moodToY[current],
-      mood: current,
-      value: moodToValue[current],
       hasMeeting: Boolean(update),
     };
   });
 }
 
-function smoothPath(points: any[]) {
-  return points.reduce((path, p, i) => {
-    if (i === 0) return `M ${p.x} ${p.y}`;
-
-    const prev = points[i - 1];
-    const dx = (p.x - prev.x) / 2;
-
-    return `${path} C ${prev.x + dx} ${prev.y}, ${p.x - dx} ${p.y}, ${p.x} ${p.y}`;
-  }, "");
+function buildLine(points: Array<{ x: number; y: number }>) {
+  return points.map((point) => `${point.x},${point.y}`).join(" ");
 }
 
 const clientSeries = buildSeries("client");
 const teamSeries = buildSeries("team");
 
 export function MoodTrendChart() {
-  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
-
-  const hovered = hoverIndex !== null ? clientSeries[hoverIndex] : null;
-
   return (
     <section className="rounded-3xl border border-gray-200 bg-white p-6">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between gap-6">
         <div>
           <h2 className="text-lg font-semibold">Динамика настроения</h2>
-          <p className="mt-1 text-sm text-gray-500">
-            Клиент и команда за выбранный период
-          </p>
+          <p className="mt-1 text-sm text-gray-500">Клиент и команда за выбранный период</p>
         </div>
 
-        <div className="flex rounded-2xl bg-[#f3f3f1] p-1">
-          {["Неделя", "Месяц", "Квартал", "Полгода", "Год"].map((p) => (
+        <div className="flex shrink-0 rounded-2xl bg-[#f3f3f1] p-1">
+          {["Неделя", "Месяц", "Квартал", "Полгода", "Год", "Кастом"].map((period) => (
             <button
-              key={p}
-              className={`rounded-xl px-3 py-1.5 text-xs ${
-                p === "Месяц"
-                  ? "bg-black text-white"
-                  : "text-gray-500 hover:bg-white"
+              key={period}
+              type="button"
+              className={`rounded-xl px-3 py-1.5 text-xs font-medium transition ${
+                period === "Месяц" ? "bg-black text-white" : "text-gray-500 hover:bg-white hover:text-black"
               }`}
             >
-              {p}
+              {period}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="relative">
-        <svg viewBox="0 0 640 150" className="w-full h-44">
-          {/* GRID */}
-          {[34, 74, 114].map((y) => (
-            <line
-              key={y}
-              x1="34"
-              x2="620"
-              y1={y}
-              y2={y}
-              stroke="#eeeeec"
-              strokeWidth="1"
-            />
-          ))}
+      <div className="mb-3 flex items-center gap-5 text-sm text-gray-600">
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-black" />
+          Клиент
+        </div>
 
-          {/* GRADIENT */}
-          <defs>
-            <linearGradient id="lineGradient" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="#22c55e" />
-              <stop offset="50%" stopColor="#9ca3af" />
-              <stop offset="100%" stopColor="#ef4444" />
-            </linearGradient>
-          </defs>
-
-          {/* TEAM */}
-          <path
-            d={smoothPath(teamSeries)}
-            fill="none"
-            stroke="#9ca3af"
-            strokeWidth="1.4"
-            strokeLinecap="round"
-          />
-
-          {/* CLIENT (gradient) */}
-          <path
-            d={smoothPath(clientSeries)}
-            fill="none"
-            stroke="url(#lineGradient)"
-            strokeWidth="2"
-            strokeLinecap="round"
-            className="opacity-90 transition-all duration-700"
-          />
-
-          {/* VERTICAL HOVER LINE */}
-          {hoverIndex !== null && (
-            <line
-              x1={clientSeries[hoverIndex].x}
-              x2={clientSeries[hoverIndex].x}
-              y1="20"
-              y2="130"
-              stroke="#e5e7eb"
-              strokeWidth="1"
-            />
-          )}
-
-          {/* POINTS */}
-          {clientSeries.map((p, i) => (
-            <g
-              key={i}
-              onMouseEnter={() => setHoverIndex(i)}
-              onMouseLeave={() => setHoverIndex(null)}
-            >
-              {p.hasMeeting && (
-                <circle
-                  cx={p.x}
-                  cy={p.y}
-                  r={hoverIndex === i ? 5 : 3.5}
-                  fill="#111827"
-                  className="transition-all"
-                />
-              )}
-            </g>
-          ))}
-
-          {/* DAYS */}
-          {clientSeries.map((p, i) => (
-            <text
-              key={i}
-              x={p.x}
-              y="142"
-              textAnchor="middle"
-              fontSize="9"
-              fill={p.hasMeeting ? "#111827" : "#9ca3af"}
-            >
-              {p.day}
-            </text>
-          ))}
-        </svg>
-
-        {/* TOOLTIP */}
-        {hovered && hovered.hasMeeting && (
-          <div
-            className="absolute -translate-x-1/2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs shadow-lg"
-            style={{
-              left: hovered.x,
-              top: hovered.y - 40,
-            }}
-          >
-            <div className="font-medium">День {hovered.day}</div>
-            <div className="text-gray-500">Настроение: {hovered.mood}</div>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-gray-400" />
+          Команда
+        </div>
       </div>
+
+      <svg viewBox="0 0 640 150" className="h-44 w-full">
+        <line x1="34" y1="34" x2="620" y2="34" stroke="#eeeeec" strokeWidth="1" />
+        <line x1="34" y1="74" x2="620" y2="74" stroke="#eeeeec" strokeWidth="1" />
+        <line x1="34" y1="114" x2="620" y2="114" stroke="#eeeeec" strokeWidth="1" />
+
+        <text x="0" y="38" fontSize="11" fill="#9ca3af">
+          Хорошо
+        </text>
+        <text x="0" y="78" fontSize="11" fill="#9ca3af">
+          Нейтр.
+        </text>
+        <text x="0" y="118" fontSize="11" fill="#9ca3af">
+          Плохо
+        </text>
+
+        <polyline
+          points={buildLine(teamSeries)}
+          fill="none"
+          stroke="#9ca3af"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
+        <polyline
+          points={buildLine(clientSeries)}
+          fill="none"
+          stroke="#111827"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
+        {days.map((day, index) => {
+          const x = 42 + index * 18;
+          const update = updates[day];
+
+          return (
+            <g key={day}>
+              {update ? (
+                <>
+                  <circle cx={x} cy={moodToY[update.team]} r="3.5" fill="#9ca3af" />
+                  <circle cx={x} cy={moodToY[update.client]} r="3.5" fill="#111827" />
+                </>
+              ) : null}
+
+              <text
+                x={x}
+                y="142"
+                textAnchor="middle"
+                fontSize="9"
+                fill={update ? "#111827" : "#9ca3af"}
+                fontWeight={update ? 600 : 400}
+              >
+                {day}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
     </section>
   );
 }
