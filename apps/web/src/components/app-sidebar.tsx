@@ -1,101 +1,105 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
-import { BarChart3, BriefcaseBusiness, CalendarDays, FileText, Inbox, Settings } from "lucide-react";
 import { usePathname } from "next/navigation";
+import {
+  BarChart3,
+  BriefcaseBusiness,
+  CalendarDays,
+  FileText,
+  Inbox,
+  Settings,
+} from "lucide-react";
 
 const navItems = [
   {
     label: "Дашборд",
     href: "/",
     icon: BarChart3,
-    activePaths: ["/"],
+    isActive: (pathname: string) => pathname === "/",
   },
   {
     label: "Проекты",
     href: "/projects",
     icon: BriefcaseBusiness,
-    activePaths: ["/projects"],
+    isActive: (pathname: string) => pathname.startsWith("/projects"),
   },
   {
     label: "Встречи",
     href: "/meetings",
     icon: CalendarDays,
-    activePaths: ["/meetings"],
+    isActive: (pathname: string) => pathname.startsWith("/meetings"),
   },
   {
     label: "Типы встреч",
     href: "/meeting-types",
     icon: FileText,
-    activePaths: ["/meeting-types"],
+    isActive: (pathname: string) => pathname.startsWith("/meeting-types"),
   },
   {
     label: "Импорт",
     href: "/import",
     icon: Inbox,
-    activePaths: ["/import"],
+    isActive: (pathname: string) => pathname.startsWith("/import"),
   },
 ];
-
-function isActivePath(pathname: string, item: (typeof navItems)[number]) {
-  if (item.href === "/") {
-    return pathname === "/";
-  }
-
-  return item.activePaths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
-}
 
 export function AppSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="fixed left-0 top-0 flex h-screen w-64 flex-col border-r border-gray-200 bg-white px-5 py-8">
-      <div className="mb-10">
-        <Image
-          src="/logo.png"
-          alt="Brele"
-          width={92}
-          height={44}
-          priority
-          className="h-auto w-[92px]"
-        />
-        <div className="mt-3 text-sm text-gray-500">операционная панель</div>
+    <aside className="fixed left-0 top-0 z-20 flex h-screen w-64 flex-col border-r border-gray-200 bg-white">
+      <div className="px-6 pb-6 pt-5">
+        <Link href="/" className="block text-center leading-none">
+          <img
+            src="/logo.png"
+            alt="Brele"
+            className="mx-auto w-32 object-contain"
+          />
+
+          <div className="-mt-1 text-center font-body text-xs font-medium uppercase tracking-[0.22em] text-gray-400">
+            operations
+          </div>
+        </Link>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-2">
+      <nav className="flex-1 space-y-1.5 px-4">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const active = isActivePath(pathname, item);
+          const active = item.isActive(pathname);
 
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition ${
+              className={[
+                "flex items-center gap-2.5 rounded-xl px-3 py-2.5 font-body text-sm font-medium transition",
                 active
-                  ? "bg-black text-white"
-                  : "text-gray-600 hover:bg-gray-100 hover:text-black"
-              }`}
+                  ? "bg-black text-white shadow-sm"
+                  : "text-gray-600 hover:bg-gray-100 hover:text-black",
+              ].join(" ")}
             >
-              <Icon size={18} />
+              <Icon size={17} />
               {item.label}
             </Link>
           );
         })}
       </nav>
 
-      <Link
-        href="/settings"
-        className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition ${
-          pathname.startsWith("/settings")
-            ? "bg-black text-white"
-            : "text-gray-600 hover:bg-gray-100 hover:text-black"
-        }`}
-      >
-        <Settings size={18} />
-        Настройки
-      </Link>
+      <div className="px-4 pb-7">
+        <Link
+          href="/settings"
+          className={[
+            "flex items-center gap-2.5 rounded-xl px-3 py-2.5 font-body text-sm font-medium transition",
+            pathname.startsWith("/settings")
+              ? "bg-black text-white shadow-sm"
+              : "text-gray-600 hover:bg-gray-100 hover:text-black",
+          ].join(" ")}
+        >
+          <Settings size={17} />
+          Настройки
+        </Link>
+      </div>
     </aside>
   );
 }

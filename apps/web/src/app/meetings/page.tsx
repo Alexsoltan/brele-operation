@@ -132,13 +132,11 @@ export default function MeetingsPage() {
       </section>
 
       <section className="rounded-3xl border border-gray-200 bg-white p-6">
-        <div className="mb-5 flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold">История встреч</h2>
-            <p className="mt-1 text-sm text-gray-500">
-              Найдено встреч: {filteredMeetings.length}
-            </p>
-          </div>
+        <div className="mb-5">
+          <h2 className="text-lg font-semibold">История встреч</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            Найдено встреч: {filteredMeetings.length}
+          </p>
         </div>
 
         {filteredMeetings.length === 0 ? (
@@ -156,7 +154,7 @@ export default function MeetingsPage() {
               return (
                 <Link
                   key={meeting.id}
-                  href={`/projects/${meeting.projectId}`}
+                  href={`/meetings/${meeting.id}`}
                   className="block rounded-3xl border border-gray-200 bg-[#f3f3f1] p-5 transition hover:border-gray-300 hover:bg-white hover:shadow-sm"
                 >
                   <div className="flex items-start justify-between gap-5">

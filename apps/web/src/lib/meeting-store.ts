@@ -39,8 +39,28 @@ const seedMeetings: Meeting[] = [
       "Нужно уточнить сроки мобильной версии.",
       "Следующий шаг — согласование следующих экранов.",
     ],
+    transcriptText: "",
   },
 ];
+
+function normalizeMeeting(meeting: Partial<Meeting>): Meeting {
+  return {
+    id: meeting.id ?? `meeting-${Date.now()}`,
+    projectId: meeting.projectId ?? "unknown",
+    title: meeting.title ?? "Встреча",
+    date: meeting.date ?? new Date().toISOString().slice(0, 10),
+    meetingType: meeting.meetingType ?? "sync",
+    transcriptText: meeting.transcriptText ?? "",
+    summary: meeting.summary ?? "Саммари отсутствует.",
+    highlights: Array.isArray(meeting.highlights) ? meeting.highlights : [],
+    clientMood: meeting.clientMood ?? "neutral",
+    teamMood: meeting.teamMood ?? "neutral",
+    risk: meeting.risk ?? "low",
+    analysisStatus: meeting.analysisStatus ?? "analyzed",
+    modelName: meeting.modelName ?? "unknown",
+    analyzedAt: meeting.analyzedAt ?? "",
+  };
+}
 
 export function getMeetings(): Meeting[] {
   if (typeof window === "undefined") return seedMeetings;
@@ -53,10 +73,15 @@ export function getMeetings(): Meeting[] {
   }
 
   try {
-    return JSON.parse(saved) as Meeting[];
+    const parsed = JSON.parse(saved) as Partial<Meeting>[];
+    return parsed.map(normalizeMeeting);
   } catch {
     return seedMeetings;
   }
+}
+
+export function getMeetingById(meetingId: string): Meeting | undefined {
+  return getMeetings().find((meeting) => meeting.id === meetingId);
 }
 
 export function getProjectMeetings(projectId: string): Meeting[] {
