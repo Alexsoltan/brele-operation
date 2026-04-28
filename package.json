@@ -1,0 +1,27 @@
+{
+  "name": "brele-operations",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Brele Operations — internal SaaS for project operations, meeting transcript analytics and client health monitoring.",
+  "license": "UNLICENSED",
+  "scripts": {
+    "dev": "pnpm --parallel dev",
+    "dev:web": "pnpm --filter @brele-operations/web dev",
+    "dev:api": "pnpm --filter @brele-operations/api start:dev",
+    "build": "pnpm --recursive build",
+    "build:web": "pnpm --filter @brele-operations/web build",
+    "build:api": "pnpm --filter @brele-operations/api build",
+    "start:web": "pnpm --filter @brele-operations/web start",
+    "start:api": "pnpm --filter @brele-operations/api start:prod",
+    "lint": "pnpm --recursive lint",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3"
+  },
+  "engines": {
+    "node": ">=20.11.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.12.3"
+}
