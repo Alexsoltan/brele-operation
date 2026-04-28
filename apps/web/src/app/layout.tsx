@@ -1,3 +1,4 @@
+import React from "react";
 import type { Metadata } from "next";
 import { IBM_Plex_Sans, Rubik } from "next/font/google";
 import "./globals.css";
@@ -24,16 +25,21 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html lang="ru" className={`${rubik.variable} ${ibmPlexSans.variable}`}>
+    <html
+      lang="ru"
+      className={`${rubik.variable ?? ""} ${ibmPlexSans.variable ?? ""}`}
+    >
       <body className="bg-[#f3f3f1] font-body text-gray-950 antialiased">
         <AppSidebar />
 
         <main className="min-h-screen pl-64">
-          <div className="mx-auto max-w-[1500px] px-8 py-8">{children}</div>
+          <div className="mx-auto max-w-[1500px] px-8 py-8">
+            {children}
+          </div>
         </main>
       </body>
     </html>
