@@ -7,7 +7,7 @@ import { Loader2 } from "lucide-react";
 export default function LoginPage() {
   const router = useRouter();
 
-  const [email, setEmail] = useState("admin@brele.local");
+  const [email, setEmail] = useState(""); // ← исправлено
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -46,20 +46,12 @@ export default function LoginPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#1f1f1f] px-6">
       <section className="w-full max-w-md rounded-[36px] bg-[#f3f3f1] p-8 shadow-xl">
-        <div className="mb-8">
+        <div className="mb-8 flex justify-center">
           <img
             src="/logo.png"
             alt="Brele"
             className="h-auto w-32 object-contain"
           />
-
-          <h1 className="mt-8 font-heading text-3xl font-semibold tracking-[-0.04em]">
-            Вход
-          </h1>
-
-          <p className="mt-2 text-sm text-gray-500">
-            Введите email и пароль, чтобы открыть панель Brele.
-          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
