@@ -19,7 +19,9 @@ export function RiskBadge({ risk }: { risk: Risk }) {
   const config = riskConfig[risk];
 
   return (
-    <span className={`rounded-full px-2 py-1 text-xs ${config.className}`}>
+    <span
+      className={`text-xs px-2 py-1 rounded-full ${config.className}`}
+    >
       {config.label}
     </span>
   );

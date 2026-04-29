@@ -2,30 +2,68 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import Link from "next/link";
-import { CalendarDays, Plus, TrendingDown } from "lucide-react";
+import { Plus, TrendingDown } from "lucide-react";
 
+import { AddMeetingModal } from "@/components/add-meeting-modal";
+import { MeetingCard } from "@/components/meeting-card";
 import { MoodSpeedometer } from "@/components/mood-speedometer";
 import { MoodTrendChart } from "@/components/mood-trend-chart";
+import type { Meeting as UiMeeting } from "@/lib/meeting-store";
 
-import {
-  getProjectById,
-  updateProjectStatus,
-  type Project,
-  type ProjectStatus,
-} from "@/lib/project-store";
+type Mood = "good" | "neutral" | "bad";
+type Risk = "low" | "medium" | "high";
+type ProjectStatus = "active" | "hold" | "archived";
 
-import {
-  formatMeetingDate,
-  getProjectMeetings,
-  type Meeting,
-} from "@/lib/meeting-store";
+type Project = {
+  id: string;
+  slug: string;
+  name: string;
+  client: string | null;
+  status: ProjectStatus;
+  clientMood: Mood;
+  teamMood: Mood;
+  risk: Risk;
+};
 
-import type { Mood, Risk } from "@/lib/mock-data";
+type ApiMeeting = {
+  id: string;
+  projectId: string;
+  title: string;
+  date: string;
+  meetingType: string;
+  transcriptText?: string | null;
+  summary: string;
+  highlights: string[];
+  clientMood: Mood;
+  teamMood: Mood;
+  risk: Risk;
+  analysisStatus: "pending" | "analyzed" | "manual" | "error";
+  modelName?: string | null;
+  analyzedAt?: string | null;
+};
 
 function normalizeParam(value: string | string[] | undefined) {
   if (Array.isArray(value)) return value[0] ?? "";
   return value ?? "";
+}
+
+function normalizeMeeting(meeting: ApiMeeting): UiMeeting {
+  return {
+    id: meeting.id,
+    projectId: meeting.projectId,
+    title: meeting.title,
+    date: meeting.date,
+    meetingType: meeting.meetingType,
+    transcriptText: meeting.transcriptText ?? undefined,
+    summary: meeting.summary,
+    highlights: meeting.highlights ?? [],
+    clientMood: meeting.clientMood,
+    teamMood: meeting.teamMood,
+    risk: meeting.risk,
+    analysisStatus: meeting.analysisStatus,
+    modelName: meeting.modelName ?? undefined,
+    analyzedAt: meeting.analyzedAt ?? undefined,
+  };
 }
 
 function statusLabel(status: ProjectStatus) {
@@ -34,78 +72,46 @@ function statusLabel(status: ProjectStatus) {
   return "Активный";
 }
 
-function moodLabel(value: Mood) {
-  if (value === "good") return "Хорошо";
-  if (value === "bad") return "Плохо";
-  return "Нейтрально";
-}
-
-function riskLabel(value: Risk) {
-  if (value === "high") return "Высокий";
-  if (value === "medium") return "Средний";
-  return "Низкий";
-}
-
-function moodTone(value: Mood) {
-  if (value === "good") return "good";
-  if (value === "bad") return "bad";
-  return "neutral";
-}
-
-function riskTone(value: Risk) {
-  if (value === "low") return "good";
-  if (value === "high") return "bad";
-  return "neutral";
-}
-
-function badgeClass(tone: "good" | "bad" | "neutral") {
-  if (tone === "good") {
-    return "border-green-200 bg-green-50 text-green-700";
-  }
-
-  if (tone === "bad") {
-    return "border-red-200 bg-red-50 text-red-700";
-  }
-
-  return "border-gray-200 bg-gray-100 text-gray-500";
-}
-
-function MeetingSignalBadge({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone: "good" | "bad" | "neutral";
-}) {
-  return (
-    <span
-      className={[
-        "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium",
-        badgeClass(tone),
-      ].join(" ")}
-    >
-      <span className="opacity-60">{label}</span>
-      <span>{value}</span>
-    </span>
-  );
-}
-
 export default function ProjectPage() {
   const params = useParams();
   const projectId = normalizeParam(params?.projectId);
 
-  const [project, setProject] = useState<Project | undefined>();
-  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [project, setProject] = useState<Project | null>(null);
+  const [meetings, setMeetings] = useState<UiMeeting[]>([]);
   const [statusDraft, setStatusDraft] = useState<ProjectStatus>("active");
+  const [loading, setLoading] = useState(true);
+  const [isAddMeetingOpen, setIsAddMeetingOpen] = useState(false);
+
+  async function loadProjectPage() {
+    setLoading(true);
+
+    try {
+      const [projectResponse, meetingsResponse] = await Promise.all([
+        fetch(`/api/projects/${projectId}`),
+        fetch(`/api/meetings?projectId=${projectId}`),
+      ]);
+
+      if (!projectResponse.ok) {
+        setProject(null);
+        setMeetings([]);
+        return;
+      }
+
+      const projectData = (await projectResponse.json()) as Project;
+      const meetingsData = (await meetingsResponse.json()) as ApiMeeting[];
+
+      setProject(projectData);
+      setStatusDraft(projectData.status);
+      setMeetings(meetingsData.map(normalizeMeeting));
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    const loadedProject = getProjectById(projectId);
-
-    setProject(loadedProject);
-    setStatusDraft(loadedProject?.status ?? "active");
-    setMeetings(getProjectMeetings(projectId));
+    if (projectId) {
+      loadProjectPage();
+    }
   }, [projectId]);
 
   const latestMeeting = meetings[0];
@@ -123,6 +129,34 @@ export default function ProjectPage() {
       (meeting) => meeting.clientMood === "bad" || meeting.risk === "high",
     );
   }, [meetings]);
+
+  async function handleStatusChange(nextStatus: ProjectStatus) {
+    if (!project) return;
+
+    const previousProject = project;
+
+    setStatusDraft(nextStatus);
+    setProject({ ...project, status: nextStatus });
+
+    const response = await fetch(`/api/projects/${project.id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        status: nextStatus,
+      }),
+    });
+
+    if (!response.ok) {
+      setStatusDraft(previousProject.status);
+      setProject(previousProject);
+    }
+  }
+
+  if (loading) {
+    return <div className="p-6 text-sm text-gray-500">Загрузка проекта...</div>;
+  }
 
   if (!project) {
     return (
@@ -154,13 +188,9 @@ export default function ProjectPage() {
         <div className="relative">
           <select
             value={statusDraft}
-            onChange={(event) => {
-              const nextStatus = event.target.value as ProjectStatus;
-
-              setStatusDraft(nextStatus);
-              updateProjectStatus(project.id, nextStatus);
-              setProject({ ...project, status: nextStatus });
-            }}
+            onChange={(event) =>
+              handleStatusChange(event.target.value as ProjectStatus)
+            }
             className="appearance-none rounded-2xl border border-gray-200 bg-white py-2 pl-4 pr-10 font-body text-sm font-medium outline-none transition hover:border-gray-300 focus:border-black"
           >
             <option value="active">Активный</option>
@@ -195,13 +225,14 @@ export default function ProjectPage() {
               </p>
             </div>
 
-            <Link
-              href={`/projects/${projectId}/meetings/new`}
+            <button
+              type="button"
+              onClick={() => setIsAddMeetingOpen(true)}
               className="inline-flex items-center gap-2 rounded-2xl bg-black px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800"
             >
               <Plus size={16} />
               Добавить встречу
-            </Link>
+            </button>
           </div>
 
           {meetings.length === 0 ? (
@@ -211,48 +242,7 @@ export default function ProjectPage() {
           ) : (
             <div className="space-y-3">
               {meetings.map((meeting) => (
-                <Link
-                  key={meeting.id}
-                  href={`/meetings/${meeting.id}`}
-                  className="block rounded-2xl border border-gray-200 p-4 transition hover:border-gray-300 hover:bg-gray-50"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <h3 className="font-heading text-base font-semibold">
-                        {meeting.title}
-                      </h3>
-
-                      <div className="mt-1 flex items-center gap-1 text-xs text-gray-500">
-                        <CalendarDays size={14} />
-                        {formatMeetingDate(meeting.date)}
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap justify-end gap-2">
-                      <MeetingSignalBadge
-                        label="Клиент"
-                        value={moodLabel(meeting.clientMood)}
-                        tone={moodTone(meeting.clientMood)}
-                      />
-
-                      <MeetingSignalBadge
-                        label="Команда"
-                        value={moodLabel(meeting.teamMood)}
-                        tone={moodTone(meeting.teamMood)}
-                      />
-
-                      <MeetingSignalBadge
-                        label="Риск"
-                        value={riskLabel(meeting.risk)}
-                        tone={riskTone(meeting.risk)}
-                      />
-                    </div>
-                  </div>
-
-                  <p className="mt-3 text-sm leading-6 text-gray-600">
-                    {meeting.summary}
-                  </p>
-                </Link>
+                <MeetingCard key={meeting.id} meeting={meeting} />
               ))}
             </div>
           )}
@@ -287,6 +277,23 @@ export default function ProjectPage() {
           )}
         </aside>
       </div>
+
+      <AddMeetingModal
+        isOpen={isAddMeetingOpen}
+        onClose={() => setIsAddMeetingOpen(false)}
+        initialProjectId={project.id}
+        projects={[project]}
+     onMeetingsChange={async () => {
+  const response = await fetch(`/api/meetings?projectId=${project.id}`);
+  const data = (await response.json()) as ApiMeeting[];
+
+  setMeetings(
+    data
+      .map(normalizeMeeting)
+      .sort((a, b) => b.date.localeCompare(a.date)),
+  );
+}}
+      />
     </div>
   );
 }

@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: brele-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: brele
+      POSTGRES_PASSWORD: brele_password
+      POSTGRES_DB: brele_operations
+    volumes:
+      - brele_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  brele_postgres_data:

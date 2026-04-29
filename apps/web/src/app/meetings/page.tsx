@@ -1,204 +1,209 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, Search } from "lucide-react";
-import { MoodBadge } from "@/components/mood-badge";
-import { RiskBadge } from "@/components/risk-badge";
-import { formatMeetingDate, getMeetings, type Meeting } from "@/lib/meeting-store";
-import { getProjects, type Project } from "@/lib/project-store";
-import type { Mood, Risk } from "@/lib/mock-data";
+import { Search } from "lucide-react";
 
-const moodOptions: Array<{ value: "all" | Mood; label: string }> = [
-  { value: "all", label: "Все настроения" },
-  { value: "good", label: "Хорошо" },
-  { value: "neutral", label: "Нейтрально" },
-  { value: "bad", label: "Плохо" },
-];
+import { UiSelect } from "@/components/ui-select";
+import { MeetingCard } from "@/components/meeting-card";
+import { AddMeetingModal } from "@/components/add-meeting-modal";
 
-const riskOptions: Array<{ value: "all" | Risk; label: string }> = [
-  { value: "all", label: "Все риски" },
-  { value: "low", label: "Низкий" },
-  { value: "medium", label: "Средний" },
-  { value: "high", label: "Высокий" },
-];
+type Mood = "good" | "neutral" | "bad";
+type Risk = "low" | "medium" | "high";
+
+type Meeting = {
+  id: string;
+  projectId: string;
+  title: string;
+  date: string;
+  meetingType: string;
+  summary: string;
+  highlights: string[];
+  clientMood: Mood;
+  teamMood: Mood;
+  risk: Risk;
+  analysisStatus: "pending" | "analyzed" | "manual" | "error";
+  project?: {
+    id: string;
+    name: string;
+  };
+};
+
+type Project = {
+  id: string;
+  name: string;
+};
 
 export default function MeetingsPage() {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+
+  const [loading, setLoading] = useState(true);
+
   const [query, setQuery] = useState("");
   const [projectFilter, setProjectFilter] = useState("all");
   const [moodFilter, setMoodFilter] = useState<"all" | Mood>("all");
   const [riskFilter, setRiskFilter] = useState<"all" | Risk>("all");
 
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   useEffect(() => {
-    setMeetings(getMeetings());
-    setProjects(getProjects());
+    async function load() {
+      try {
+        const [meetingsRes, projectsRes] = await Promise.all([
+          fetch("/api/meetings"),
+          fetch("/api/projects"),
+        ]);
+
+        const meetingsData = await meetingsRes.json();
+        const projectsData = await projectsRes.json();
+
+        setMeetings(meetingsData);
+        setProjects(projectsData);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    load();
   }, []);
 
-  const projectById = useMemo(() => {
-    return new Map(projects.map((project) => [project.id, project]));
-  }, [projects]);
-
   const filteredMeetings = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
+    return meetings.filter((meeting) => {
+      if (projectFilter !== "all" && meeting.projectId !== projectFilter) {
+        return false;
+      }
 
-    return meetings
-      .filter((meeting) => {
-        const project = projectById.get(meeting.projectId);
-        const projectName = project?.name ?? "";
+      if (moodFilter !== "all" && meeting.clientMood !== moodFilter) {
+        return false;
+      }
 
-        const matchesSearch =
-          !normalizedQuery ||
-          meeting.title.toLowerCase().includes(normalizedQuery) ||
-          meeting.summary.toLowerCase().includes(normalizedQuery) ||
-          projectName.toLowerCase().includes(normalizedQuery);
+      if (riskFilter !== "all" && meeting.risk !== riskFilter) {
+        return false;
+      }
 
-        const matchesProject =
-          projectFilter === "all" || meeting.projectId === projectFilter;
+      if (query.trim()) {
+        const q = query.toLowerCase();
 
-        const matchesMood =
-          moodFilter === "all" || meeting.clientMood === moodFilter;
+        return (
+          meeting.title.toLowerCase().includes(q) ||
+          meeting.summary.toLowerCase().includes(q)
+        );
+      }
 
-        const matchesRisk =
-          riskFilter === "all" || meeting.risk === riskFilter;
+      return true;
+    });
+  }, [meetings, projectFilter, moodFilter, riskFilter, query]);
 
-        return matchesSearch && matchesProject && matchesMood && matchesRisk;
-      })
-      .sort((a, b) => b.date.localeCompare(a.date));
-  }, [meetings, moodFilter, projectById, projectFilter, query, riskFilter]);
+  if (loading) {
+    return (
+      <div className="p-6 text-sm text-gray-500">
+        Загрузка встреч...
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold">Встречи</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Все встречи по проектам, AI-оценки, риски и динамика коммуникации
-        </p>
-      </div>
+    <div className="space-y-6">
+      {/* HEADER */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="font-heading text-2xl font-semibold tracking-[-0.03em]">
+            Встречи
+          </h1>
 
-      <section className="rounded-3xl border border-gray-200 bg-white p-6">
-        <div className="grid grid-cols-[1.4fr_0.9fr_0.7fr_0.7fr] gap-3">
-          <div className="relative">
-            <Search
-              size={17}
-              className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-            />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Поиск по встречам, summary или проекту"
-              className="w-full rounded-2xl border border-gray-200 bg-[#f3f3f1] py-3 pl-11 pr-4 text-sm outline-none focus:border-black"
-            />
-          </div>
-
-          <select
-            value={projectFilter}
-            onChange={(event) => setProjectFilter(event.target.value)}
-            className="w-full rounded-2xl border border-gray-200 bg-[#f3f3f1] px-4 py-3 text-sm outline-none focus:border-black"
-          >
-            <option value="all">Все проекты</option>
-            {projects.map((project) => (
-              <option key={project.id} value={project.id}>
-                {project.name}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={moodFilter}
-            onChange={(event) => setMoodFilter(event.target.value as "all" | Mood)}
-            className="w-full rounded-2xl border border-gray-200 bg-[#f3f3f1] px-4 py-3 text-sm outline-none focus:border-black"
-          >
-            {moodOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={riskFilter}
-            onChange={(event) => setRiskFilter(event.target.value as "all" | Risk)}
-            className="w-full rounded-2xl border border-gray-200 bg-[#f3f3f1] px-4 py-3 text-sm outline-none focus:border-black"
-          >
-            {riskOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </section>
-
-      <section className="rounded-3xl border border-gray-200 bg-white p-6">
-        <div className="mb-5">
-          <h2 className="text-lg font-semibold">История встреч</h2>
           <p className="mt-1 text-sm text-gray-500">
-            Найдено встреч: {filteredMeetings.length}
+            Все встречи, AI-анализ и сигналы по проектам
           </p>
         </div>
 
-        {filteredMeetings.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-gray-200 bg-[#f3f3f1] p-8 text-sm text-gray-500">
-            Встречи не найдены. Попробуй изменить поиск или фильтры.
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="rounded-2xl bg-black px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800"
+        >
+          + Добавить встречу
+        </button>
+      </div>
+
+      {/* FILTERS */}
+      <section className="rounded-3xl border border-gray-200 bg-white p-6">
+        <div className="grid grid-cols-[1.4fr_0.9fr_0.7fr_0.7fr] items-start gap-3">
+          <div className="relative">
+            <Search
+              size={17}
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+            />
+
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Поиск по встречам"
+              className="h-[50px] w-full rounded-2xl border border-gray-200 bg-[#f3f3f1] py-3 pl-11 pr-4 text-sm outline-none focus:border-black"
+            />
           </div>
-        ) : (
-          <div className="space-y-3">
-            {filteredMeetings.map((meeting) => {
-              const project = projectById.get(meeting.projectId);
-              const highlights = Array.isArray(meeting.highlights)
-                ? meeting.highlights
-                : [];
 
-              return (
-                <Link
-                  key={meeting.id}
-                  href={`/meetings/${meeting.id}`}
-                  className="block rounded-3xl border border-gray-200 bg-[#f3f3f1] p-5 transition hover:border-gray-300 hover:bg-white hover:shadow-sm"
-                >
-                  <div className="flex items-start justify-between gap-5">
-                    <div className="min-w-0">
-                      <div className="text-sm text-gray-500">
-                        {project?.name ?? meeting.projectId}
-                      </div>
+          <UiSelect
+            value={projectFilter}
+            onChange={setProjectFilter}
+            options={[
+              { value: "all", label: "Все проекты" },
+              ...projects.map((p) => ({
+                value: p.id,
+                label: p.name,
+              })),
+            ]}
+          />
 
-                      <h3 className="mt-1 font-semibold">{meeting.title}</h3>
+          <UiSelect
+            value={moodFilter}
+            onChange={(v) => setMoodFilter(v as any)}
+            options={[
+              { value: "all", label: "Все настроения" },
+              { value: "good", label: "Хорошо" },
+              { value: "neutral", label: "Нейтрально" },
+              { value: "bad", label: "Плохо" },
+            ]}
+          />
 
-                      <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
-                        <CalendarDays size={14} />
-                        {formatMeetingDate(meeting.date)}
-                      </div>
-                    </div>
-
-                    <div className="flex shrink-0 gap-2">
-                      <MoodBadge mood={meeting.clientMood} />
-                      <RiskBadge risk={meeting.risk} />
-                    </div>
-                  </div>
-
-                  <p className="mt-4 line-clamp-2 text-sm leading-6 text-gray-600">
-                    {meeting.summary}
-                  </p>
-
-                  {highlights.length > 0 ? (
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {highlights.slice(0, 3).map((highlight, index) => (
-                        <span
-                          key={`${meeting.id}-${index}`}
-                          className="rounded-full bg-white px-3 py-1 text-xs text-gray-500"
-                        >
-                          {highlight}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                </Link>
-              );
-            })}
-          </div>
-        )}
+          <UiSelect
+            value={riskFilter}
+            onChange={(v) => setRiskFilter(v as any)}
+            options={[
+              { value: "all", label: "Все риски" },
+              { value: "low", label: "Низкий" },
+              { value: "medium", label: "Средний" },
+              { value: "high", label: "Высокий" },
+            ]}
+          />
+        </div>
       </section>
+
+      {/* LIST */}
+      <section className="rounded-3xl border border-gray-200 bg-white p-6">
+        <div className="mb-4">
+          <h2 className="font-heading text-lg font-semibold">
+            История встреч
+          </h2>
+
+          <div className="mt-1 text-sm text-gray-500">
+            Найдено: {filteredMeetings.length}
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          {filteredMeetings.map((meeting) => (
+            <MeetingCard key={meeting.id} meeting={meeting} />
+          ))}
+        </div>
+      </section>
+
+      <AddMeetingModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onMeetingsChange={setMeetings}
+        projects={projects}
+      />
     </div>
   );
 }

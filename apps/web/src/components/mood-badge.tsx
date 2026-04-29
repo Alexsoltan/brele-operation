@@ -19,7 +19,7 @@ export function MoodBadge({ mood }: { mood: Mood }) {
   const config = moodConfig[mood];
 
   return (
-    <span className={`rounded-full px-2 py-1 text-xs ${config.className}`}>
+    <span className={`text-xs px-2 py-1 rounded-full ${config.className}`}>
       {config.label}
     </span>
   );

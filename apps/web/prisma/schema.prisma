@@ -1,0 +1,83 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ProjectStatus {
+  active
+  hold
+  archived
+}
+
+enum Mood {
+  good
+  neutral
+  bad
+}
+
+enum Risk {
+  low
+  medium
+  high
+}
+
+enum MeetingAnalysisStatus {
+  pending
+  analyzed
+  manual
+  error
+}
+
+model Project {
+  id     String        @id @default(cuid())
+  slug   String        @unique
+  name   String
+  client String?
+  status ProjectStatus @default(active)
+
+  clientMood Mood @default(neutral)
+  teamMood   Mood @default(neutral)
+  risk       Risk @default(low)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  meetings Meeting[]
+
+  @@index([deletedAt])
+}
+
+model Meeting {
+  id          String   @id @default(cuid())
+  projectId   String
+  title       String
+  date        DateTime
+  meetingType String
+
+  transcriptText String?
+  summary        String
+  highlights     String[] @default([])
+
+  clientMood Mood @default(neutral)
+  teamMood   Mood @default(neutral)
+  risk       Risk @default(low)
+
+  analysisStatus MeetingAnalysisStatus @default(pending)
+  modelName       String?
+  analyzedAt      DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([date])
+  @@index([deletedAt])
+}
