@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   BarChart3,
   BriefcaseBusiness,
   CalendarDays,
   FileText,
   Inbox,
+  LogOut,
   Settings,
 } from "lucide-react";
 
@@ -21,6 +22,16 @@ const navItems = [
 
 export function AppSidebar() {
   const pathname = usePathname() ?? "";
+  const router = useRouter();
+
+  async function handleLogout() {
+    await fetch("/api/auth/logout", {
+      method: "POST",
+    });
+
+    router.push("/login");
+    router.refresh();
+  }
 
   return (
     <aside className="fixed left-0 top-0 z-20 flex h-screen w-72 flex-col bg-[#1f1f1f] py-5">
@@ -68,7 +79,7 @@ export function AppSidebar() {
         })}
       </nav>
 
-      <div className="px-4 pt-5">
+      <div className="space-y-2 px-4 pt-5">
         <Link
           href="/settings"
           className={[
@@ -90,6 +101,19 @@ export function AppSidebar() {
 
           <span>Настройки</span>
         </Link>
+
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="group flex w-full items-center gap-3 rounded-full px-4 py-3 font-body text-sm font-medium text-white/70 transition hover:bg-white/10 hover:text-white"
+        >
+          <LogOut
+            size={18}
+            className="shrink-0 text-white/65 transition group-hover:text-white"
+          />
+
+          <span>Выйти</span>
+        </button>
       </div>
     </aside>
   );

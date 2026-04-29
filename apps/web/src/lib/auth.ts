@@ -1,32 +1,50 @@
 import { prisma } from "@/lib/prisma";
+import { getSessionUserId } from "@/lib/auth-session";
 
 type UserRole = "ADMIN" | "MANAGER" | "ANALYST";
 
 export async function getCurrentUser() {
-  const user = await prisma.user.findUnique({
+  const userId = getSessionUserId();
+
+  if (!userId) {
+    return null;
+  }
+
+  const user = await prisma.user.findFirst({
     where: {
-      email: "admin@brele.local",
+      id: userId,
+      deletedAt: null,
     },
     include: {
       workspace: true,
     },
   });
 
-  if (!user || !user.workspaceId) {
-    throw new Error("Dev user or workspace not found. Run prisma seed.");
+  if (!user || !user.workspaceId || !user.workspace) {
+    return null;
+  }
+
+  return user;
+}
+
+export async function requireUser() {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    throw new Error("Unauthorized");
   }
 
   return user;
 }
 
 export async function getCurrentWorkspaceId() {
-  const user = await getCurrentUser();
+  const user = await requireUser();
 
   return user.workspaceId;
 }
 
 export async function requireRole(allowedRoles: UserRole[]) {
-  const user = await getCurrentUser();
+  const user = await requireUser();
 
   if (!allowedRoles.includes(user.role as UserRole)) {
     throw new Error("Forbidden");
