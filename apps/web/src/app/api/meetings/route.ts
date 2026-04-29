@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentWorkspaceId } from "@/lib/auth";
+import { requireCanManageMeetings, requireCanRead } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
-  const workspaceId = await getCurrentWorkspaceId();
+  const user = await requireCanRead();
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId");
 
   const meetings = await prisma.meeting.findMany({
     where: {
-      workspaceId,
+      workspaceId: user.workspaceId,
       deletedAt: null,
       project: {
-        workspaceId,
+        workspaceId: user.workspaceId,
         deletedAt: null,
       },
       ...(projectId ? { projectId } : {}),
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const workspaceId = await getCurrentWorkspaceId();
+  const user = await requireCanManageMeetings();
   const body = await req.json();
 
   const projectId = String(body?.projectId ?? "").trim();
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
   const project = await prisma.project.findFirst({
     where: {
       id: projectId,
-      workspaceId,
+      workspaceId: user.workspaceId,
       deletedAt: null,
     },
   });
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
 
   const meeting = await prisma.meeting.create({
     data: {
-      workspaceId,
+      workspaceId: user.workspaceId,
       projectId,
       title,
       date: body?.date ? new Date(body.date) : new Date(),

@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentWorkspaceId } from "@/lib/auth";
+import { requireCanManageProjects, requireCanRead } from "@/lib/auth";
 
 export async function GET(
   _req: NextRequest,
   context: { params: Promise<{ projectId: string }> },
 ) {
-  const workspaceId = await getCurrentWorkspaceId();
+  const user = await requireCanRead();
   const { projectId } = await context.params;
 
   const project = await prisma.project.findFirst({
     where: {
       id: projectId,
-      workspaceId,
+      workspaceId: user.workspaceId,
       deletedAt: null,
     },
   });
@@ -28,14 +28,14 @@ export async function PATCH(
   req: NextRequest,
   context: { params: Promise<{ projectId: string }> },
 ) {
-  const workspaceId = await getCurrentWorkspaceId();
+  const user = await requireCanManageProjects();
   const { projectId } = await context.params;
   const body = await req.json();
 
   const existingProject = await prisma.project.findFirst({
     where: {
       id: projectId,
-      workspaceId,
+      workspaceId: user.workspaceId,
       deletedAt: null,
     },
   });
@@ -65,13 +65,13 @@ export async function DELETE(
   _req: NextRequest,
   context: { params: Promise<{ projectId: string }> },
 ) {
-  const workspaceId = await getCurrentWorkspaceId();
+  const user = await requireCanManageProjects();
   const { projectId } = await context.params;
 
   const existingProject = await prisma.project.findFirst({
     where: {
       id: projectId,
-      workspaceId,
+      workspaceId: user.workspaceId,
       deletedAt: null,
     },
   });

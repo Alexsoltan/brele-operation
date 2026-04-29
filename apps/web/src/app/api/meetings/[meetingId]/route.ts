@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentWorkspaceId } from "@/lib/auth";
+import { requireCanManageMeetings, requireCanRead } from "@/lib/auth";
 
 export async function GET(
   _req: NextRequest,
   context: { params: { meetingId: string } },
 ) {
-  const workspaceId = await getCurrentWorkspaceId();
+  const user = await requireCanRead();
 
   const meeting = await prisma.meeting.findFirst({
     where: {
       id: context.params.meetingId,
-      workspaceId,
+      workspaceId: user.workspaceId,
       deletedAt: null,
     },
     include: {
@@ -30,13 +30,13 @@ export async function PATCH(
   req: NextRequest,
   context: { params: { meetingId: string } },
 ) {
-  const workspaceId = await getCurrentWorkspaceId();
+  const user = await requireCanManageMeetings();
   const body = await req.json();
 
   const existingMeeting = await prisma.meeting.findFirst({
     where: {
       id: context.params.meetingId,
-      workspaceId,
+      workspaceId: user.workspaceId,
       deletedAt: null,
     },
   });
@@ -85,12 +85,12 @@ export async function DELETE(
   _req: NextRequest,
   context: { params: { meetingId: string } },
 ) {
-  const workspaceId = await getCurrentWorkspaceId();
+  const user = await requireCanManageMeetings();
 
   const existingMeeting = await prisma.meeting.findFirst({
     where: {
       id: context.params.meetingId,
-      workspaceId,
+      workspaceId: user.workspaceId,
       deletedAt: null,
     },
   });
