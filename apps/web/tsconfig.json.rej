@@ -1,0 +1,55 @@
+diff a/apps/web/tsconfig.json b/apps/web/tsconfig.json	(rejected hunks)
+@@ -1,11 +1,7 @@
+ {
+   "compilerOptions": {
+     "target": "ES2017",
+-    "lib": [
+-      "dom",
+-      "dom.iterable",
+-      "esnext"
+-    ],
++    "lib": ["dom", "dom.iterable", "esnext"],
+     "allowJs": true,
+     "skipLibCheck": true,
+     "strict": true,
+@@ -16,27 +12,29 @@
+     "resolveJsonModule": true,
+     "isolatedModules": true,
+     "jsx": "preserve",
+-    "incremental": true,
++    "incremental": false,
+     "plugins": [
+       {
+         "name": "next"
+       }
+     ],
+     "paths": {
+-      "@/*": [
+-        "./src/*"
+-      ]
++      "@/*": ["./src/*"]
+     }
+   },
+   "include": [
+     "next-env.d.ts",
+-    "**/*.ts",
+-    "**/*.tsx",
++    "src/**/*.ts",
++    "src/**/*.tsx",
+     ".next/types/**/*.ts",
+-    ".next/dev/types/**/*.ts",
+-    "**/*.mts"
++    ".next/dev/types/**/*.ts"
+   ],
+   "exclude": [
+-    "node_modules"
++    "node_modules",
++    ".next",
++    "generated",
++    "src/generated",
++    "prisma",
++    "prisma.config.ts"
+   ]
+-}
++}
+\ No newline at end of file

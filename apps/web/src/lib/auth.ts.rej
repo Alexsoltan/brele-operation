@@ -1,0 +1,9 @@
+diff a/apps/web/src/lib/auth.ts b/apps/web/src/lib/auth.ts	(rejected hunks)
+@@ -1,5 +1,7 @@
+ import { prisma } from "@/lib/prisma";
+ 
++type UserRole = "ADMIN" | "MANAGER" | "ANALYST";
++
+ export async function getCurrentUser() {
+   const user = await prisma.user.findUnique({
+     where: {

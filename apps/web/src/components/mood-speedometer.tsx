@@ -1,20 +1,57 @@
-type SpeedometerValue = "bad" | "neutral" | "good" | "low" | "medium" | "high";
+type IndicatorValue = "bad" | "neutral" | "good" | "low" | "medium" | "high";
 
-const valueConfig: Record<
-  SpeedometerValue,
+const config: Record<
+  IndicatorValue,
   {
     label: string;
-    angle: number;
-    labelClassName: string;
-    isRisk: boolean;
+    position: string;
+    tone: string;
+    dot: string;
+    labels: [string, string, string];
   }
 > = {
-  bad: { label: "Плохо", angle: -48, labelClassName: "text-red-700", isRisk: false },
-  neutral: { label: "Нейтрально", angle: 0, labelClassName: "text-gray-950", isRisk: false },
-  good: { label: "Хорошо", angle: 48, labelClassName: "text-green-700", isRisk: false },
-  low: { label: "Низкий", angle: -48, labelClassName: "text-green-700", isRisk: true },
-  medium: { label: "Средний", angle: 0, labelClassName: "text-gray-950", isRisk: true },
-  high: { label: "Высокий", angle: 48, labelClassName: "text-red-700", isRisk: true },
+  bad: {
+    label: "Плохо",
+    position: "left-[8%]",
+    tone: "bg-red-500 text-white",
+    dot: "bg-red-500",
+    labels: ["Плохо", "Нейтр.", "Хорошо"],
+  },
+  neutral: {
+    label: "Нейтрально",
+    position: "left-1/2",
+    tone: "bg-gray-500 text-white",
+    dot: "bg-gray-500",
+    labels: ["Плохо", "Нейтр.", "Хорошо"],
+  },
+  good: {
+    label: "Хорошо",
+    position: "left-[92%]",
+    tone: "bg-green-500 text-white",
+    dot: "bg-green-500",
+    labels: ["Плохо", "Нейтр.", "Хорошо"],
+  },
+  low: {
+    label: "Низкий",
+    position: "left-[8%]",
+    tone: "bg-green-500 text-white",
+    dot: "bg-green-500",
+    labels: ["Низкий", "Средний", "Высокий"],
+  },
+  medium: {
+    label: "Средний",
+    position: "left-1/2",
+    tone: "bg-gray-500 text-white",
+    dot: "bg-gray-500",
+    labels: ["Низкий", "Средний", "Высокий"],
+  },
+  high: {
+    label: "Высокий",
+    position: "left-[92%]",
+    tone: "bg-red-500 text-white",
+    dot: "bg-red-500",
+    labels: ["Низкий", "Средний", "Высокий"],
+  },
 };
 
 export function MoodSpeedometer({
@@ -22,63 +59,44 @@ export function MoodSpeedometer({
   value,
 }: {
   title: string;
-  value: SpeedometerValue;
+  value: IndicatorValue;
 }) {
-  const config = valueConfig[value];
-
-  const gradient = config.isRisk
-    ? "conic-gradient(from 270deg, #bbf7d0 0deg, #bbf7d0 50deg, #e5e7eb 70deg, #e5e7eb 110deg, #fecaca 130deg, #fecaca 180deg, transparent 180deg, transparent 360deg)"
-    : "conic-gradient(from 270deg, #fecaca 0deg, #fecaca 50deg, #e5e7eb 70deg, #e5e7eb 110deg, #bbf7d0 130deg, #bbf7d0 180deg, transparent 180deg, transparent 360deg)";
+  const item = config[value];
 
   return (
     <section className="rounded-3xl border border-gray-200 bg-white p-6">
-      <div className="font-heading text-lg font-semibold tracking-[-0.02em] text-gray-950">
-  {title}
-</div>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="font-heading text-lg font-semibold tracking-[-0.02em]">
+            {title}
+          </div>
 
-      <div className="mt-5 flex flex-col items-center">
-        <div className="relative h-[132px] w-[210px] overflow-hidden">
           <div
-            className="absolute left-0 top-0 h-[210px] w-[210px] rounded-full"
-            style={{
-              background: gradient,
-              WebkitMask:
-                "radial-gradient(farthest-side, transparent calc(100% - 24px), #000 calc(100% - 23px))",
-              mask:
-                "radial-gradient(farthest-side, transparent calc(100% - 24px), #000 calc(100% - 23px))",
-            }}
+            className={[
+              "mt-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold shadow-sm",
+              item.tone,
+            ].join(" ")}
+          >
+            {item.label}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-7">
+        <div className="relative h-2 rounded-full bg-gray-200">
+          <div
+            className={[
+              "absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white shadow-md",
+              item.position,
+              item.dot,
+            ].join(" ")}
           />
-
-          <svg viewBox="0 0 210 132" className="absolute left-0 top-0 h-[132px] w-[210px]">
-            <g
-              style={{
-                transform: `rotate(${config.angle}deg)`,
-                transformOrigin: "105px 105px",
-                transition: "transform 260ms ease",
-              }}
-            >
-              <line
-                x1="105"
-                y1="105"
-                x2="105"
-                y2="46"
-                stroke="#111827"
-                strokeWidth="8"
-                strokeLinecap="round"
-              />
-            </g>
-
-            <circle cx="105" cy="105" r="11" fill="#111827" />
-          </svg>
         </div>
 
-        <div
-          className={[
-            "-mt-2 font-heading text-2xl font-semibold leading-none tracking-[-0.03em]",
-            config.labelClassName,
-          ].join(" ")}
-        >
-          {config.label}
+        <div className="mt-3 grid grid-cols-3 text-[11px] text-gray-400">
+          <span>{item.labels[0]}</span>
+          <span className="text-center">{item.labels[1]}</span>
+          <span className="text-right">{item.labels[2]}</span>
         </div>
       </div>
     </section>

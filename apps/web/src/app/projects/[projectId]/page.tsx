@@ -1,13 +1,26 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
-import { Plus, TrendingDown } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  MoreHorizontal,
+  Plus,
+  Trash2,
+  TrendingDown,
+  X,
+} from "lucide-react";
 
 import { AddMeetingModal } from "@/components/add-meeting-modal";
 import { MeetingCard } from "@/components/meeting-card";
 import { MoodSpeedometer } from "@/components/mood-speedometer";
 import { MoodTrendChart } from "@/components/mood-trend-chart";
+import {
+  canManageMeetings,
+  canManageProjects,
+  type UserRole,
+} from "@/lib/permissions";
 import type { Meeting as UiMeeting } from "@/lib/types";
 
 type Mood = "good" | "neutral" | "bad";
@@ -23,6 +36,14 @@ type Project = {
   clientMood: Mood;
   teamMood: Mood;
   risk: Risk;
+};
+
+type CurrentUser = {
+  id: string;
+  email: string;
+  name: string | null;
+  role: UserRole;
+  workspaceId: string;
 };
 
 type ApiMeeting = {
@@ -41,6 +62,12 @@ type ApiMeeting = {
   modelName?: string | null;
   analyzedAt?: string | null;
 };
+
+const statusOptions: Array<{ value: ProjectStatus; label: string }> = [
+  { value: "active", label: "Активный" },
+  { value: "hold", label: "Холд" },
+  { value: "archived", label: "Архив" },
+];
 
 function normalizeParam(value: string | string[] | undefined) {
   if (Array.isArray(value)) return value[0] ?? "";
@@ -67,28 +94,49 @@ function normalizeMeeting(meeting: ApiMeeting): UiMeeting {
 }
 
 function statusLabel(status: ProjectStatus) {
-  if (status === "hold") return "На холде";
-  if (status === "archived") return "В архиве";
+  if (status === "hold") return "Холд";
+  if (status === "archived") return "Архив";
   return "Активный";
+}
+
+function statusClassName(status: ProjectStatus) {
+  if (status === "hold") {
+    return "border-yellow-200 bg-yellow-50 text-yellow-700";
+  }
+
+  if (status === "archived") {
+    return "border-gray-200 bg-gray-100 text-gray-500";
+  }
+
+  return "border-green-200 bg-green-50 text-green-700";
 }
 
 export default function ProjectPage() {
   const params = useParams();
+  const router = useRouter();
   const projectId = normalizeParam(params?.projectId);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   const [project, setProject] = useState<Project | null>(null);
   const [meetings, setMeetings] = useState<UiMeeting[]>([]);
-  const [statusDraft, setStatusDraft] = useState<ProjectStatus>("active");
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAddMeetingOpen, setIsAddMeetingOpen] = useState(false);
+  const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const canEditProject = canManageProjects(currentUser?.role);
+  const canEditMeetings = canManageMeetings(currentUser?.role);
 
   async function loadProjectPage() {
     setLoading(true);
 
     try {
-      const [projectResponse, meetingsResponse] = await Promise.all([
+      const [projectResponse, meetingsResponse, meResponse] = await Promise.all([
         fetch(`/api/projects/${projectId}`),
         fetch(`/api/meetings?projectId=${projectId}`),
+        fetch("/api/me"),
       ]);
 
       if (!projectResponse.ok) {
@@ -99,10 +147,15 @@ export default function ProjectPage() {
 
       const projectData = (await projectResponse.json()) as Project;
       const meetingsData = (await meetingsResponse.json()) as ApiMeeting[];
+      const userData = (await meResponse.json()) as CurrentUser;
 
       setProject(projectData);
-      setStatusDraft(projectData.status);
-      setMeetings(meetingsData.map(normalizeMeeting));
+      setMeetings(
+        meetingsData
+          .map(normalizeMeeting)
+          .sort((a, b) => b.date.localeCompare(a.date)),
+      );
+      setCurrentUser(userData);
     } finally {
       setLoading(false);
     }
@@ -113,6 +166,24 @@ export default function ProjectPage() {
       loadProjectPage();
     }
   }, [projectId]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (!menuRef.current) return;
+
+      if (!menuRef.current.contains(event.target as Node)) {
+        setIsActionMenuOpen(false);
+      }
+    }
+
+    if (isActionMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isActionMenuOpen]);
 
   const latestMeeting = meetings[0];
 
@@ -135,8 +206,8 @@ export default function ProjectPage() {
 
     const previousProject = project;
 
-    setStatusDraft(nextStatus);
     setProject({ ...project, status: nextStatus });
+    setIsActionMenuOpen(false);
 
     const response = await fetch(`/api/projects/${project.id}`, {
       method: "PATCH",
@@ -149,9 +220,41 @@ export default function ProjectPage() {
     });
 
     if (!response.ok) {
-      setStatusDraft(previousProject.status);
       setProject(previousProject);
     }
+  }
+
+  async function handleDeleteProject() {
+    if (!project) return;
+
+    setIsDeleting(true);
+
+    try {
+      const response = await fetch(`/api/projects/${project.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error("Project delete failed");
+      }
+
+      router.push("/projects");
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
+  async function reloadProjectMeetings() {
+    if (!project) return;
+
+    const response = await fetch(`/api/meetings?projectId=${project.id}`);
+    const data = (await response.json()) as ApiMeeting[];
+
+    setMeetings(
+      data
+        .map(normalizeMeeting)
+        .sort((a, b) => b.date.localeCompare(a.date)),
+    );
   }
 
   if (loading) {
@@ -172,36 +275,77 @@ export default function ProjectPage() {
     <div className="space-y-8">
       <header className="flex items-start justify-between gap-6">
         <div>
+          <div
+            className={[
+              "mb-3 inline-flex rounded-full border px-3 py-1 text-xs font-medium",
+              statusClassName(project.status),
+            ].join(" ")}
+          >
+            {statusLabel(project.status)}
+          </div>
+
           <h1 className="font-heading text-2xl font-semibold tracking-[-0.03em]">
             {project.name}
           </h1>
 
           <p className="mt-1 font-body text-sm text-gray-500">
-            Аналитика встреч, настроение клиента и состояние команды
+            {project.client ?? "Клиент не указан"}
           </p>
-
-          <div className="mt-2 font-body text-sm text-gray-500">
-            Статус: {statusLabel(project.status)}
-          </div>
         </div>
 
-        <div className="relative">
-          <select
-            value={statusDraft}
-            onChange={(event) =>
-              handleStatusChange(event.target.value as ProjectStatus)
-            }
-            className="appearance-none rounded-2xl border border-gray-200 bg-white py-2 pl-4 pr-10 font-body text-sm font-medium outline-none transition hover:border-gray-300 focus:border-black"
-          >
-            <option value="active">Активный</option>
-            <option value="hold">Холд</option>
-            <option value="archived">Архив</option>
-          </select>
+        {canEditProject ? (
+          <div ref={menuRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setIsActionMenuOpen((value) => !value)}
+              className="inline-flex items-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
+            >
+              <MoreHorizontal size={17} />
+              Управление
+            </button>
 
-          <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
-            ↓
+            {isActionMenuOpen ? (
+              <div className="absolute right-0 top-12 z-30 w-64 overflow-hidden rounded-2xl border border-gray-200 bg-white p-1 shadow-xl">
+                <div className="px-3 py-2 text-xs font-medium uppercase tracking-[0.12em] text-gray-400">
+                  Статус проекта
+                </div>
+
+                {statusOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => handleStatusChange(option.value)}
+                    className={[
+                      "flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm transition",
+                      project.status === option.value
+                        ? "bg-black text-white"
+                        : "text-gray-600 hover:bg-gray-100 hover:text-black",
+                    ].join(" ")}
+                  >
+                    {option.label}
+                    {project.status === option.value ? (
+                      <CheckCircle2 size={15} />
+                    ) : null}
+                  </button>
+                ))}
+
+                <div className="my-1 h-px bg-gray-100" />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsActionMenuOpen(false);
+                    setIsDeleteConfirmOpen(true);
+                  }}
+                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm text-red-600 transition hover:bg-red-50"
+                >
+                  <Trash2 size={15} />
+                  Удалить проект
+                </button>
+              </div>
+            ) : null}
           </div>
-        </div>
+        ) : null}
       </header>
 
       <section className="grid grid-cols-3 gap-4">
@@ -210,7 +354,7 @@ export default function ProjectPage() {
         <MoodSpeedometer title="Риски" value={currentRisk} />
       </section>
 
-      <MoodTrendChart />
+      <MoodTrendChart meetings={meetings} />
 
       <div className="grid grid-cols-[1.4fr_0.9fr] gap-4">
         <section className="rounded-3xl border border-gray-200 bg-white p-6">
@@ -225,14 +369,16 @@ export default function ProjectPage() {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setIsAddMeetingOpen(true)}
-              className="inline-flex items-center gap-2 rounded-2xl bg-black px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800"
-            >
-              <Plus size={16} />
-              Добавить встречу
-            </button>
+            {canEditMeetings ? (
+              <button
+                type="button"
+                onClick={() => setIsAddMeetingOpen(true)}
+                className="inline-flex items-center gap-2 rounded-2xl bg-black px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800"
+              >
+                <Plus size={16} />
+                Добавить встречу
+              </button>
+            ) : null}
           </div>
 
           {meetings.length === 0 ? (
@@ -266,7 +412,8 @@ export default function ProjectPage() {
             </div>
           ) : (
             <div className="mt-4 rounded-2xl bg-green-50 p-4">
-              <div className="text-sm font-semibold text-green-700">
+              <div className="flex items-center gap-2 text-sm font-semibold text-green-700">
+                <CheckCircle2 size={16} />
                 Всё стабильно
               </div>
 
@@ -283,17 +430,59 @@ export default function ProjectPage() {
         onClose={() => setIsAddMeetingOpen(false)}
         initialProjectId={project.id}
         projects={[project]}
-     onMeetingsChange={async () => {
-  const response = await fetch(`/api/meetings?projectId=${project.id}`);
-  const data = (await response.json()) as ApiMeeting[];
-
-  setMeetings(
-    data
-      .map(normalizeMeeting)
-      .sort((a, b) => b.date.localeCompare(a.date)),
-  );
-}}
+        onMeetingsChange={reloadProjectMeetings}
       />
+
+      {isDeleteConfirmOpen ? (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/35 px-6 backdrop-blur-[1px]">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="mb-3 inline-flex rounded-full bg-red-50 p-2 text-red-600">
+                  <AlertTriangle size={18} />
+                </div>
+
+                <h2 className="font-heading text-xl font-semibold">
+                  Удалить проект?
+                </h2>
+
+                <p className="mt-2 text-sm leading-6 text-gray-500">
+                  Проект «{project.name}» будет скрыт из списка. Данные не
+                  удаляются физически и останутся в базе.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsDeleteConfirmOpen(false)}
+                className="rounded-full p-2 text-gray-400 transition hover:bg-gray-100 hover:text-black"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setIsDeleteConfirmOpen(false)}
+                className="rounded-2xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-600 transition hover:bg-gray-100"
+              >
+                Отмена
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDeleteProject}
+                disabled={isDeleting}
+                className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-red-300"
+              >
+                <Trash2 size={16} />
+                {isDeleting ? "Удаляем..." : "Удалить"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
