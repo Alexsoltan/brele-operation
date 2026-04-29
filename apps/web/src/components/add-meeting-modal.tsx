@@ -14,17 +14,43 @@ import {
 
 import { UiSelect } from "@/components/ui-select";
 
-const meetingTypes = [
-  { value: "sync", label: "Синк" },
-  { value: "demo", label: "Демо" },
-  { value: "planning", label: "Планирование" },
-  { value: "acceptance", label: "Приёмка" },
-  { value: "risk", label: "Разбор рисков" },
-];
+type Project = {
+  id: string;
+  name: string;
+};
 
-function meetingTypeLabel(value: string) {
-  return meetingTypes.find((type) => type.value === value)?.label ?? value;
-}
+type MeetingType = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  prompt: string;
+  isDefault: boolean;
+};
+
+type Meeting = {
+  id: string;
+  projectId: string;
+  meetingTypeId?: string | null;
+  title: string;
+  date: string;
+  meetingType: string;
+  summary: string;
+  highlights: string[];
+  clientMood: "good" | "neutral" | "bad";
+  teamMood: "good" | "neutral" | "bad";
+  risk: "low" | "medium" | "high";
+  analysisStatus: "pending" | "analyzed" | "manual" | "error";
+  project?: Project;
+};
+
+type AddMeetingModalProps = {
+  isOpen: boolean;
+  onClose: () => void;
+  onMeetingsChange: (meetings: Meeting[]) => void;
+  initialProjectId?: string;
+  projects?: Project[];
+};
 
 function formatDateForInput(date: Date) {
   return date.toISOString().slice(0, 10);
@@ -73,34 +99,6 @@ function buildCalendarDays(activeMonth: Date) {
   return days;
 }
 
-type Project = {
-  id: string;
-  name: string;
-};
-
-type Meeting = {
-  id: string;
-  projectId: string;
-  title: string;
-  date: string;
-  meetingType: string;
-  summary: string;
-  highlights: string[];
-  clientMood: "good" | "neutral" | "bad";
-  teamMood: "good" | "neutral" | "bad";
-  risk: "low" | "medium" | "high";
-  analysisStatus: "pending" | "analyzed" | "manual" | "error";
-  project?: Project;
-};
-
-type AddMeetingModalProps = {
-  isOpen: boolean;
-  onClose: () => void;
-  onMeetingsChange: (meetings: Meeting[]) => void;
-  initialProjectId?: string;
-  projects?: Project[];
-};
-
 export function AddMeetingModal({
   isOpen,
   onClose,
@@ -109,8 +107,11 @@ export function AddMeetingModal({
   projects = [],
 }: AddMeetingModalProps) {
   const [mounted, setMounted] = useState(false);
-  const [projectId, setProjectId] = useState(initialProjectId ?? projects[0]?.id ?? "");
-  const [meetingType, setMeetingType] = useState("sync");
+  const [projectId, setProjectId] = useState(
+    initialProjectId ?? projects[0]?.id ?? "",
+  );
+  const [meetingTypes, setMeetingTypes] = useState<MeetingType[]>([]);
+  const [meetingTypeId, setMeetingTypeId] = useState("");
   const [date, setDate] = useState(() => formatDateForInput(new Date()));
   const [activeMonth, setActiveMonth] = useState(() => new Date());
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
@@ -119,11 +120,37 @@ export function AddMeetingModal({
   const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const calendarDays = useMemo(() => buildCalendarDays(activeMonth), [activeMonth]);
+  const calendarDays = useMemo(
+    () => buildCalendarDays(activeMonth),
+    [activeMonth],
+  );
+
+  const selectedMeetingType = meetingTypes.find(
+    (type) => type.id === meetingTypeId,
+  );
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    async function loadMeetingTypes() {
+      const response = await fetch("/api/meeting-types");
+      const data = (await response.json()) as MeetingType[];
+
+      setMeetingTypes(data);
+
+      const defaultType = data.find((type) => type.isDefault) ?? data[0];
+
+      if (defaultType) {
+        setMeetingTypeId(defaultType.id);
+      }
+    }
+
+    if (isOpen) {
+      loadMeetingTypes();
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (initialProjectId) {
@@ -162,11 +189,13 @@ export function AddMeetingModal({
   }
 
   async function handleCreateMeeting() {
-    if (!projectId || !transcriptText.trim()) return;
+    if (!projectId || !meetingTypeId || !transcriptText.trim()) return;
 
     setIsSubmitting(true);
 
     const transcript = transcriptText.trim();
+    const typeName = selectedMeetingType?.name ?? "Встреча";
+    const typeSlug = selectedMeetingType?.slug ?? "meeting";
 
     try {
       const createResponse = await fetch("/api/meetings", {
@@ -176,9 +205,10 @@ export function AddMeetingModal({
         },
         body: JSON.stringify({
           projectId,
-          title: meetingTypeLabel(meetingType),
+          meetingTypeId,
+          title: typeName,
           date,
-          meetingType,
+          meetingType: typeSlug,
           transcriptText: transcript,
           summary: "AI-анализ встречи выполняется...",
           highlights: [],
@@ -202,7 +232,6 @@ export function AddMeetingModal({
 
       setTranscriptText("");
       setFileName("");
-      setMeetingType("sync");
       setDate(formatDateForInput(new Date()));
       setActiveMonth(new Date());
       setIsCalendarOpen(false);
@@ -215,6 +244,7 @@ export function AddMeetingModal({
           },
           body: JSON.stringify({
             text: transcript,
+            meetingTypeId,
           }),
         });
 
@@ -231,7 +261,9 @@ export function AddMeetingModal({
           },
           body: JSON.stringify({
             summary: result.summary ?? "Саммари не получено.",
-            highlights: Array.isArray(result.highlights) ? result.highlights : [],
+            highlights: Array.isArray(result.highlights)
+              ? result.highlights
+              : [],
             clientMood: result.clientMood ?? "neutral",
             teamMood: result.teamMood ?? "neutral",
             risk: result.risk ?? "low",
@@ -308,9 +340,12 @@ export function AddMeetingModal({
 
           <UiSelect
             label="Тип встречи"
-            value={meetingType}
-            onChange={setMeetingType}
-            options={meetingTypes}
+            value={meetingTypeId}
+            onChange={setMeetingTypeId}
+            options={meetingTypes.map((type) => ({
+              value: type.id,
+              label: type.name,
+            }))}
           />
 
           <div className="relative space-y-2">
@@ -409,6 +444,12 @@ export function AddMeetingModal({
           </div>
         </div>
 
+        {selectedMeetingType?.description ? (
+          <div className="mt-4 rounded-3xl border border-gray-200 bg-[#f3f3f1] px-4 py-3 text-sm leading-6 text-gray-600">
+            {selectedMeetingType.description}
+          </div>
+        ) : null}
+
         <label
           onDragOver={(event) => {
             event.preventDefault();
@@ -476,7 +517,12 @@ export function AddMeetingModal({
           <button
             type="button"
             onClick={handleCreateMeeting}
-            disabled={isSubmitting || !projectId || !transcriptText.trim()}
+            disabled={
+              isSubmitting ||
+              !projectId ||
+              !meetingTypeId ||
+              !transcriptText.trim()
+            }
             className="inline-flex items-center gap-2 rounded-2xl bg-black px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
           >
             {isSubmitting ? (

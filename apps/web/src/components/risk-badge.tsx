@@ -2,27 +2,30 @@ type Risk = "low" | "medium" | "high";
 
 const riskConfig: Record<Risk, { label: string; className: string }> = {
   low: {
-    label: "Low",
-    className: "bg-gray-100 text-gray-700",
+    label: "Низкий",
+    className: "border-green-200 bg-green-50 text-green-700",
   },
   medium: {
-    label: "Medium",
-    className: "bg-yellow-100 text-yellow-700",
+    label: "Средний",
+    className: "border-yellow-200 bg-yellow-50 text-yellow-700",
   },
   high: {
-    label: "High",
-    className: "bg-red-100 text-red-700",
+    label: "Высокий",
+    className: "border-red-200 bg-red-50 text-red-700",
   },
 };
 
-export function RiskBadge({ risk }: { risk: Risk }) {
+export function RiskBadge({ risk, label }: { risk: Risk; label?: string }) {
   const config = riskConfig[risk];
 
   return (
     <span
-      className={`text-xs px-2 py-1 rounded-full ${config.className}`}
+      className={[
+        "inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium",
+        config.className,
+      ].join(" ")}
     >
-      {config.label}
+      {label ? `${label}: ${config.label}` : config.label}
     </span>
   );
 }

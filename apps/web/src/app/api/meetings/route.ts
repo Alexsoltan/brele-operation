@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
     },
     include: {
       project: true,
+      type: true,
     },
     orderBy: {
       date: "desc",
@@ -33,8 +34,9 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
 
   const projectId = String(body?.projectId ?? "").trim();
+  const meetingTypeId = String(body?.meetingTypeId ?? "").trim();
   const title = String(body?.title ?? "Встреча").trim();
-  const meetingType = String(body?.meetingType ?? "sync").trim();
+  const meetingType = String(body?.meetingType ?? "meeting").trim();
   const transcriptText = String(body?.transcriptText ?? body?.text ?? "").trim();
 
   if (!projectId) {
@@ -56,10 +58,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
+  if (meetingTypeId) {
+    const type = await prisma.meetingType.findFirst({
+      where: {
+        id: meetingTypeId,
+        workspaceId: user.workspaceId,
+        deletedAt: null,
+      },
+    });
+
+    if (!type) {
+      return NextResponse.json(
+        { error: "Meeting type not found" },
+        { status: 404 },
+      );
+    }
+  }
+
   const meeting = await prisma.meeting.create({
     data: {
       workspaceId: user.workspaceId,
       projectId,
+      meetingTypeId: meetingTypeId || null,
       title,
       date: body?.date ? new Date(body.date) : new Date(),
       meetingType,
@@ -75,6 +95,7 @@ export async function POST(req: NextRequest) {
     },
     include: {
       project: true,
+      type: true,
     },
   });
 

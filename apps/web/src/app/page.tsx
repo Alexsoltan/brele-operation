@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { PageTitle } from "@/components/page-title";
 import { useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
@@ -13,9 +12,11 @@ import {
   Users,
 } from "lucide-react";
 
+import { PageTitle } from "@/components/page-title";
 import type { Meeting, Mood, Project, Risk } from "@/lib/types";
 
 type Trend = "up" | "down" | "flat";
+type SignalKind = "mood" | "risk";
 
 function moodScore(value: Mood) {
   if (value === "good") return 3;
@@ -24,7 +25,7 @@ function moodScore(value: Mood) {
 }
 
 function riskScore(value: Risk) {
-  if (value === "low") return 3;
+  if (value === "high") return 3;
   if (value === "medium") return 2;
   return 1;
 }
@@ -39,52 +40,81 @@ function getProjectTrend(
   meetings: Meeting[],
   field: "clientMood" | "teamMood" | "risk",
 ): Trend {
-  if (meetings.length < 2) return "flat";
-
   const current = meetings[0];
+
+  if (!current) return "flat";
+
   const previous = meetings[1];
 
   if (field === "risk") {
-    return getTrend(riskScore(current.risk), riskScore(previous.risk));
+    const currentScore = riskScore(current.risk);
+    const previousScore = previous ? riskScore(previous.risk) : riskScore("medium");
+
+    return getTrend(currentScore, previousScore);
   }
 
-  return getTrend(moodScore(current[field]), moodScore(previous[field]));
+  const currentScore = moodScore(current[field]);
+  const previousScore = previous ? moodScore(previous[field]) : moodScore("neutral");
+
+  return getTrend(currentScore, previousScore);
+}
+
+function latestClientMood(project: Project, meetings: Meeting[]) {
+  return meetings[0]?.clientMood ?? project.clientMood ?? "neutral";
+}
+
+function latestMeetingLabel(meetings: Meeting[]) {
+  return meetings[0]?.date ?? "Нет встреч";
+}
+
+function formatDate(value: string) {
+  if (!value || value === "Нет встреч") return "Нет встреч";
+
+  const parsed = new Date(value);
+
+  if (Number.isNaN(parsed.getTime())) return value;
+
+  return parsed.toLocaleDateString("ru-RU", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 function TrendIcon({ trend }: { trend: Trend }) {
   if (trend === "up") {
-    return <TrendingUp size={14} className="text-green-600" />;
+    return <TrendingUp size={14} />;
   }
 
   if (trend === "down") {
-    return <TrendingDown size={14} className="text-red-600" />;
+    return <TrendingDown size={14} />;
   }
 
-  return <Minus size={14} className="text-gray-400" />;
+  return <Minus size={14} />;
 }
 
 function SignalItem({
   label,
   trend,
+  kind,
   icon: Icon,
 }: {
   label: string;
   trend: Trend;
+  kind: SignalKind;
   icon: typeof Smile;
 }) {
-  const tone =
-    trend === "up"
-      ? "border-green-200 bg-green-50 text-green-700"
-      : trend === "down"
-        ? "border-red-200 bg-red-50 text-red-700"
-        : "border-gray-200 bg-gray-100 text-gray-500";
+  const isPositive =
+    kind === "mood" ? trend === "up" : trend === "down";
 
-  const iconTone =
-    trend === "up"
-      ? "text-green-500"
-      : trend === "down"
-        ? "text-red-500"
-        : "text-gray-400";
+  const isNegative =
+    kind === "mood" ? trend === "down" : trend === "up";
+
+  const tone = isPositive
+    ? "border-green-200 bg-green-50 text-green-700"
+    : isNegative
+      ? "border-red-200 bg-red-50 text-red-700"
+      : "border-gray-200 bg-gray-100 text-gray-500";
 
   return (
     <div
@@ -93,7 +123,7 @@ function SignalItem({
         tone,
       ].join(" ")}
     >
-      <Icon size={13} className={iconTone} />
+      <Icon size={13} />
       <span>{label}</span>
       <TrendIcon trend={trend} />
     </div>
@@ -143,28 +173,6 @@ function MiniGauge({ value }: { value: Mood }) {
       </svg>
     </div>
   );
-}
-
-function latestClientMood(project: Project, meetings: Meeting[]) {
-  return meetings[0]?.clientMood ?? project.clientMood ?? "neutral";
-}
-
-function latestMeetingLabel(meetings: Meeting[]) {
-  return meetings[0]?.date ?? "Нет встреч";
-}
-
-function formatDate(value: string) {
-  if (!value || value === "Нет встреч") return "Нет встреч";
-
-  const parsed = new Date(value);
-
-  if (Number.isNaN(parsed.getTime())) return value;
-
-  return parsed.toLocaleDateString("ru-RU", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
 }
 
 export default function DashboardPage() {
@@ -230,6 +238,7 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <header>
         <PageTitle>Дашборд</PageTitle>
+
         <p className="mt-1 text-sm text-gray-500">
           Обзор всех активных проектов, состояния клиентов
         </p>
@@ -277,11 +286,24 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="mt-5 flex flex-wrap gap-2">
-                  <SignalItem label="Клиент" trend={clientTrend} icon={Smile} />
-                  <SignalItem label="Команда" trend={teamTrend} icon={Users} />
+                  <SignalItem
+                    label="Клиент"
+                    trend={clientTrend}
+                    kind="mood"
+                    icon={Smile}
+                  />
+
+                  <SignalItem
+                    label="Команда"
+                    trend={teamTrend}
+                    kind="mood"
+                    icon={Users}
+                  />
+
                   <SignalItem
                     label="Риск"
                     trend={riskTrend}
+                    kind="risk"
                     icon={ShieldAlert}
                   />
                 </div>

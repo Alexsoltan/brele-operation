@@ -7,6 +7,8 @@ import { UiSelect } from "@/components/ui-select";
 import { MeetingCard } from "@/components/meeting-card";
 import { AddMeetingModal } from "@/components/add-meeting-modal";
 import { PageTitle } from "@/components/page-title";
+import { Plus } from "lucide-react";
+import { PrimaryActionButton } from "@/components/primary-action-button";
 
 type Mood = "good" | "neutral" | "bad";
 type Risk = "low" | "medium" | "high";
@@ -117,12 +119,14 @@ export default function MeetingsPage() {
           </p>
         </div>
 
-        <button
+        
+        <PrimaryActionButton
           onClick={() => setIsModalOpen(true)}
-          className="rounded-2xl bg-black px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800"
+          icon={<Plus size={16} />}
         >
-          + Добавить встречу
-        </button>
+          Добавить встречу
+        </PrimaryActionButton>
+        
       </div>
 
       {/* FILTERS */}

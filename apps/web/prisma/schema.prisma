@@ -1,6 +1,6 @@
 generator client {
   provider = "prisma-client"
-  output   = "../generated/prisma"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -47,9 +47,10 @@ model Workspace {
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
 
-  users    User[]
-  projects Project[]
-  meetings Meeting[]
+  users        User[]
+  projects     Project[]
+  meetings     Meeting[]
+  meetingTypes MeetingType[]
 
   @@index([deletedAt])
 }
@@ -97,10 +98,33 @@ model Project {
   @@index([deletedAt])
 }
 
+model MeetingType {
+  id          String @id @default(cuid())
+  workspaceId String?
+
+  name        String
+  slug        String
+  description String?
+  prompt      String
+  isDefault   Boolean @default(false)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  meetings  Meeting[]
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId])
+  @@index([deletedAt])
+}
+
 model Meeting {
   id          String @id @default(cuid())
   workspaceId String?
   projectId   String
+  meetingTypeId String?
 
   title       String
   date        DateTime
@@ -124,9 +148,11 @@ model Meeting {
 
   workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  type      MeetingType? @relation(fields: [meetingTypeId], references: [id], onDelete: SetNull)
 
   @@index([workspaceId])
   @@index([projectId])
+  @@index([meetingTypeId])
   @@index([date])
   @@index([deletedAt])
 }
