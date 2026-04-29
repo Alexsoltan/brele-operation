@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { PageTitle } from "@/components/page-title";
 import { useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
@@ -228,7 +229,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="font-heading text-2xl font-semibold">Дашборд</h1>
+        <PageTitle>Дашборд</PageTitle>
         <p className="mt-1 text-sm text-gray-500">
           Обзор всех активных проектов, состояния клиентов
         </p>

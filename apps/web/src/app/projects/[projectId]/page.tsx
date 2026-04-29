@@ -1,5 +1,6 @@
 "use client";
 
+import { PageTitle } from "@/components/page-title";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -264,9 +265,7 @@ export default function ProjectPage() {
   if (!project) {
     return (
       <div className="rounded-3xl border border-gray-200 bg-white p-8">
-        <h1 className="font-heading text-xl font-semibold">
-          Проект не найден
-        </h1>
+        <PageTitle>Проект не найден</PageTitle>
       </div>
     );
   }
@@ -284,10 +283,7 @@ export default function ProjectPage() {
             {statusLabel(project.status)}
           </div>
 
-          <h1 className="font-heading text-2xl font-semibold tracking-[-0.03em]">
-            {project.name}
-          </h1>
-
+          <PageTitle>{project.name}</PageTitle>
           <p className="mt-1 font-body text-sm text-gray-500">
             {project.client ?? "Клиент не указан"}
           </p>

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, CalendarDays, FileText } from "lucide-react";
 
 import { UiSelect } from "@/components/ui-select";
+import { PageTitle } from "@/components/page-title";
 import {
   formatMeetingDate,
   type Meeting,
@@ -110,10 +111,7 @@ export default function MeetingDetailsPage() {
   if (!meeting) {
     return (
       <div className="rounded-3xl border border-gray-200 bg-white p-8">
-        <h1 className="font-heading text-xl font-semibold">
-          Встреча не найдена
-        </h1>
-
+        <PageTitle>Встреча не найдена</PageTitle>
         <Link
           href="/meetings"
           className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-black"
@@ -145,10 +143,7 @@ export default function MeetingDetailsPage() {
             <div className="text-sm text-gray-500">
               {meeting.project?.name ?? meeting.projectId}
             </div>
-
-            <h1 className="mt-1 font-heading text-2xl font-semibold tracking-[-0.03em]">
-              {meeting.title}
-            </h1>
+              <PageTitle>{meeting.title}</PageTitle>
 
             <div className="mt-3 flex items-center gap-2 text-sm text-gray-500">
               <CalendarDays size={16} />

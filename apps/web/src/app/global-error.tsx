@@ -1,4 +1,5 @@
 "use client";
+import { PageTitle } from "@/components/page-title";
 
 export default function GlobalError({
   error,
@@ -9,7 +10,7 @@ export default function GlobalError({
     <html lang="ru">
       <body>
         <div style={{ padding: 32, fontFamily: "sans-serif" }}>
-          <h1>Критическая ошибка</h1>
+          <PageTitle>Критическая ошибка</PageTitle>
           <p>{error.message}</p>
         </div>
       </body>

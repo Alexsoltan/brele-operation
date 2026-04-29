@@ -6,6 +6,7 @@ import { Search } from "lucide-react";
 import { UiSelect } from "@/components/ui-select";
 import { MeetingCard } from "@/components/meeting-card";
 import { AddMeetingModal } from "@/components/add-meeting-modal";
+import { PageTitle } from "@/components/page-title";
 
 type Mood = "good" | "neutral" | "bad";
 type Risk = "low" | "medium" | "high";
@@ -109,9 +110,7 @@ export default function MeetingsPage() {
       {/* HEADER */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="font-heading text-2xl font-semibold tracking-[-0.03em]">
-            Встречи
-          </h1>
+          <PageTitle>Встречи</PageTitle>
 
           <p className="mt-1 text-sm text-gray-500">
             Все встречи, AI-анализ и сигналы по проектам

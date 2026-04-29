@@ -1,3 +1,5 @@
+import { PageTitle } from "@/components/page-title";
+
 const meetingTypes = [
   {
     name: "Синк",
@@ -25,7 +27,7 @@ export default function MeetingTypesPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold">Типы встреч</h1>
+        <PageTitle>Типы встреч</PageTitle>
         <p className="mt-1 text-sm text-gray-500">
           Справочник типов встреч для AI-анализа и аналитики проектов
         </p>

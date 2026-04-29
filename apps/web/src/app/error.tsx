@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { PageTitle } from "@/components/page-title";
 
 export default function ErrorPage({
   error,
@@ -11,7 +12,7 @@ export default function ErrorPage({
 }) {
   return (
     <div className="rounded-3xl border border-gray-200 bg-white p-8">
-      <h1 className="text-xl font-semibold">Что-то пошло не так</h1>
+      <PageTitle>Что-то пошло не так</PageTitle>
       <p className="mt-2 text-sm text-gray-500">{error.message}</p>
 
       <div className="mt-6 flex gap-3">

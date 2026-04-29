@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { PageTitle } from "@/components/page-title";
 import { useEffect, useMemo, useState } from "react";
 import {
   ChevronDown,
@@ -127,7 +128,7 @@ export default function ProjectsPage() {
       {/* HEADER */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="font-heading text-2xl font-semibold">Проекты</h1>
+          <PageTitle>Проекты</PageTitle>
           <p className="text-sm text-gray-500">
             Список проектов и управление
           </p>
