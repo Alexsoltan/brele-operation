@@ -3,7 +3,7 @@ import { CalendarDays, Loader2 } from "lucide-react";
 
 import { MoodBadge } from "@/components/mood-badge";
 import { RiskBadge } from "@/components/risk-badge";
-import { formatMeetingDate, type Meeting } from "@/lib/meeting-store";
+import { formatMeetingDate, type Meeting } from "@/lib/types";
 
 type MeetingCardProps = {
   meeting: Meeting;

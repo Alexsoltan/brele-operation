@@ -8,7 +8,7 @@ import { AddMeetingModal } from "@/components/add-meeting-modal";
 import { MeetingCard } from "@/components/meeting-card";
 import { MoodSpeedometer } from "@/components/mood-speedometer";
 import { MoodTrendChart } from "@/components/mood-trend-chart";
-import type { Meeting as UiMeeting } from "@/lib/meeting-store";
+import type { Meeting as UiMeeting } from "@/lib/types";
 
 type Mood = "good" | "neutral" | "bad";
 type Risk = "low" | "medium" | "high";

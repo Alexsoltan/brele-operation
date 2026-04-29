@@ -12,30 +12,9 @@ import {
   Users,
 } from "lucide-react";
 
-import { getProjectMeetings, type Meeting } from "@/lib/meeting-store";
-import { getProjects, type Project } from "@/lib/project-store";
-import type { Mood, Risk } from "@/lib/mock-data";
+import type { Meeting, Mood, Project, Risk } from "@/lib/types";
 
 type Trend = "up" | "down" | "flat";
-
-const demoTrendOverrides: Record<
-  string,
-  Partial<Record<"clientMood" | "teamMood" | "risk", Trend>>
-> = {
-  freeport: {
-    clientMood: "down",
-    teamMood: "down",
-    risk: "down",
-  },
-  "gamma-website": {
-    clientMood: "down",
-    risk: "down",
-  },
-  "alfa-mobile-app": {
-    clientMood: "up",
-    risk: "up",
-  },
-};
 
 function moodScore(value: Mood) {
   if (value === "good") return 3;
@@ -56,14 +35,9 @@ function getTrend(current: number, previous: number): Trend {
 }
 
 function getProjectTrend(
-  projectId: string,
   meetings: Meeting[],
   field: "clientMood" | "teamMood" | "risk",
 ): Trend {
-  const demoTrend = demoTrendOverrides[projectId]?.[field];
-
-  if (demoTrend) return demoTrend;
-
   if (meetings.length < 2) return "flat";
 
   const current = meetings[0];
@@ -171,11 +145,11 @@ function MiniGauge({ value }: { value: Mood }) {
 }
 
 function latestClientMood(project: Project, meetings: Meeting[]) {
-  return meetings[0]?.clientMood ?? project.clientMood;
+  return meetings[0]?.clientMood ?? project.clientMood ?? "neutral";
 }
 
-function latestMeetingLabel(project: Project, meetings: Meeting[]) {
-  return meetings[0]?.date ?? project.lastMeeting ?? "Нет встреч";
+function latestMeetingLabel(meetings: Meeting[]) {
+  return meetings[0]?.date ?? "Нет встреч";
 }
 
 function formatDate(value: string) {
@@ -197,22 +171,42 @@ export default function DashboardPage() {
   const [meetingsByProject, setMeetingsByProject] = useState<
     Record<string, Meeting[]>
   >({});
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadedProjects = getProjects().filter(
-      (project) => project.status === "active",
-    );
+    async function loadDashboard() {
+      try {
+        const [projectsResponse, meetingsResponse] = await Promise.all([
+          fetch("/api/projects"),
+          fetch("/api/meetings"),
+        ]);
 
-    const loadedMeetings = loadedProjects.reduce<Record<string, Meeting[]>>(
-      (acc, project) => {
-        acc[project.id] = getProjectMeetings(project.id);
-        return acc;
-      },
-      {},
-    );
+        const projectsData = (await projectsResponse.json()) as Project[];
+        const meetingsData = (await meetingsResponse.json()) as Meeting[];
 
-    setProjects(loadedProjects);
-    setMeetingsByProject(loadedMeetings);
+        const activeProjects = projectsData.filter(
+          (project) => project.status === "active",
+        );
+
+        const groupedMeetings = activeProjects.reduce<Record<string, Meeting[]>>(
+          (acc, project) => {
+            acc[project.id] = meetingsData
+              .filter((meeting) => meeting.projectId === project.id)
+              .sort((a, b) => b.date.localeCompare(a.date));
+
+            return acc;
+          },
+          {},
+        );
+
+        setProjects(activeProjects);
+        setMeetingsByProject(groupedMeetings);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadDashboard();
   }, []);
 
   const sortedProjects = useMemo(() => {
@@ -226,6 +220,10 @@ export default function DashboardPage() {
       );
     });
   }, [meetingsByProject, projects]);
+
+  if (loading) {
+    return <div className="p-6 text-sm text-gray-500">Загрузка дашборда...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -247,24 +245,15 @@ export default function DashboardPage() {
             const clientMood = latestClientMood(project, projectMeetings);
 
             const clientTrend = getProjectTrend(
-              project.id,
               projectMeetings,
               "clientMood",
             );
 
-            const teamTrend = getProjectTrend(
-              project.id,
-              projectMeetings,
-              "teamMood",
-            );
+            const teamTrend = getProjectTrend(projectMeetings, "teamMood");
 
-            const riskTrend = getProjectTrend(
-              project.id,
-              projectMeetings,
-              "risk",
-            );
+            const riskTrend = getProjectTrend(projectMeetings, "risk");
 
-            const latestMeeting = latestMeetingLabel(project, projectMeetings);
+            const latestMeeting = latestMeetingLabel(projectMeetings);
 
             return (
               <Link
@@ -279,7 +268,7 @@ export default function DashboardPage() {
                     </h2>
 
                     <p className="mt-1 truncate text-sm text-gray-500">
-                      Клиент: {project.client}
+                      Клиент: {project.client ?? "Клиент не указан"}
                     </p>
                   </div>
 
@@ -289,7 +278,11 @@ export default function DashboardPage() {
                 <div className="mt-5 flex flex-wrap gap-2">
                   <SignalItem label="Клиент" trend={clientTrend} icon={Smile} />
                   <SignalItem label="Команда" trend={teamTrend} icon={Users} />
-                  <SignalItem label="Риск" trend={riskTrend} icon={ShieldAlert} />
+                  <SignalItem
+                    label="Риск"
+                    trend={riskTrend}
+                    icon={ShieldAlert}
+                  />
                 </div>
 
                 <div className="mt-6 flex items-center gap-2 text-xs text-gray-400">

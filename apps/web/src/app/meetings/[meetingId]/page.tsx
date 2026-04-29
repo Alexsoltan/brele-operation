@@ -8,12 +8,10 @@ import { ArrowLeft, CalendarDays, FileText } from "lucide-react";
 import { UiSelect } from "@/components/ui-select";
 import {
   formatMeetingDate,
-  getMeetingById,
-  updateMeeting,
   type Meeting,
-} from "@/lib/meeting-store";
-import { getProjectById, type Project } from "@/lib/project-store";
-import type { Mood, Risk } from "@/lib/mock-data";
+  type Mood,
+  type Risk,
+} from "@/lib/types";
 
 function normalizeParam(value: string | string[] | undefined) {
   if (Array.isArray(value)) return value[0] ?? "";
@@ -51,29 +49,62 @@ export default function MeetingDetailsPage() {
   const params = useParams();
   const meetingId = normalizeParam(params?.meetingId);
 
-  const [meeting, setMeeting] = useState<Meeting | undefined>();
-  const [project, setProject] = useState<Project | undefined>();
+  const [meeting, setMeeting] = useState<Meeting | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  async function loadMeeting() {
+    setLoading(true);
+
+    try {
+      const response = await fetch(`/api/meetings/${meetingId}`);
+
+      if (!response.ok) {
+        setMeeting(null);
+        return;
+      }
+
+      const data = (await response.json()) as Meeting;
+      setMeeting(data);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    const loadedMeeting = getMeetingById(meetingId);
-
-    setMeeting(loadedMeeting);
-
-    if (loadedMeeting?.projectId) {
-      setProject(getProjectById(loadedMeeting.projectId));
+    if (meetingId) {
+      loadMeeting();
     }
   }, [meetingId]);
 
-  function patchMeeting(patch: Partial<Meeting>) {
+  async function patchMeeting(patch: Partial<Meeting>) {
     if (!meeting) return;
 
-    const nextMeeting = {
+    const optimisticMeeting = {
       ...meeting,
       ...patch,
     };
 
-    updateMeeting(meeting.id, patch);
-    setMeeting(nextMeeting);
+    setMeeting(optimisticMeeting);
+
+    const response = await fetch(`/api/meetings/${meeting.id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(patch),
+    });
+
+    if (!response.ok) {
+      setMeeting(meeting);
+      return;
+    }
+
+    const updatedMeeting = (await response.json()) as Meeting;
+    setMeeting(updatedMeeting);
+  }
+
+  if (loading) {
+    return <div className="p-6 text-sm text-gray-500">Загрузка встречи...</div>;
   }
 
   if (!meeting) {
@@ -112,7 +143,7 @@ export default function MeetingDetailsPage() {
         <div className="flex items-start justify-between gap-6">
           <div>
             <div className="text-sm text-gray-500">
-              {project?.name ?? meeting.projectId}
+              {meeting.project?.name ?? meeting.projectId}
             </div>
 
             <h1 className="mt-1 font-heading text-2xl font-semibold tracking-[-0.03em]">
@@ -136,6 +167,7 @@ export default function MeetingDetailsPage() {
           <h2 className="font-heading text-lg font-semibold">
             Параметры встречи
           </h2>
+
           <p className="mt-1 text-sm text-gray-500">
             Можно вручную поправить тип встречи и AI-оценки
           </p>
@@ -151,6 +183,7 @@ export default function MeetingDetailsPage() {
                 title:
                   meetingTypeOptions.find((option) => option.value === value)
                     ?.label ?? meeting.title,
+                analysisStatus: "manual",
               });
             }}
             options={meetingTypeOptions}

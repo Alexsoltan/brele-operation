@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { ArrowLeft } from "lucide-react";
-import { createProject } from "@/lib/project-store";
 
 export default function NewProjectPage() {
   const router = useRouter();
@@ -12,21 +11,38 @@ export default function NewProjectPage() {
   const [name, setName] = useState("");
   const [clientName, setClientName] = useState("");
   const [description, setDescription] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!name.trim() || !clientName.trim()) {
-      return;
+    if (!name.trim() || !clientName.trim()) return;
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch("/api/projects", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: name.trim(),
+          client: clientName.trim(),
+          description: description.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Project creation failed");
+      }
+
+      const project = await response.json();
+
+      router.push(`/projects/${project.id}`);
+    } finally {
+      setIsSubmitting(false);
     }
-
-    const project = createProject({
-      name: name.trim(),
-      clientName: clientName.trim(),
-      description: description.trim(),
-    });
-
-    router.push(`/projects/${project.id}`);
   }
 
   return (
@@ -40,15 +56,21 @@ export default function NewProjectPage() {
           Назад к проектам
         </Link>
 
-        <h1 className="text-2xl font-semibold">Создать проект</h1>
+        <h1 className="font-heading text-2xl font-semibold">Создать проект</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Добавь клиентский проект, чтобы затем прикреплять встречи и анализировать динамику
+          Добавь клиентский проект, чтобы затем прикреплять встречи и
+          анализировать динамику
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5 rounded-3xl border border-gray-200 bg-white p-6">
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-5 rounded-3xl border border-gray-200 bg-white p-6"
+      >
         <div>
-          <label className="mb-2 block text-sm font-medium">Название проекта</label>
+          <label className="mb-2 block text-sm font-medium">
+            Название проекта
+          </label>
           <input
             type="text"
             value={name}
@@ -90,10 +112,10 @@ export default function NewProjectPage() {
 
           <button
             type="submit"
-            disabled={!name.trim() || !clientName.trim()}
+            disabled={isSubmitting || !name.trim() || !clientName.trim()}
             className="rounded-2xl bg-black px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-gray-300"
           >
-            Создать проект
+            {isSubmitting ? "Создаём..." : "Создать проект"}
           </button>
         </div>
       </form>
