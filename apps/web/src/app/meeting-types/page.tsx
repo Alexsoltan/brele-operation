@@ -22,6 +22,9 @@ const emptyForm = {
   prompt: "",
 };
 
+const scrollAreaClassName =
+  "[scrollbar-width:thin] [scrollbar-color:#c7c7c3_transparent] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-transparent [&::-webkit-scrollbar-thumb]:bg-clip-padding [&::-webkit-scrollbar-thumb:hover]:bg-gray-400";
+
 export default function MeetingTypesPage() {
   const [meetingTypes, setMeetingTypes] = useState<MeetingType[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -29,7 +32,9 @@ export default function MeetingTypesPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
-  const [deleteCandidate, setDeleteCandidate] = useState<MeetingType | null>(null);
+  const [deleteCandidate, setDeleteCandidate] = useState<MeetingType | null>(
+    null,
+  );
   const [deleting, setDeleting] = useState(false);
 
   const selectedType = useMemo(
@@ -93,7 +98,9 @@ export default function MeetingTypesPage() {
 
     try {
       const response = await fetch(
-        selectedType ? `/api/meeting-types/${selectedType.id}` : "/api/meeting-types",
+        selectedType
+          ? `/api/meeting-types/${selectedType.id}`
+          : "/api/meeting-types",
         {
           method: selectedType ? "PATCH" : "POST",
           headers: { "Content-Type": "application/json" },
@@ -180,7 +187,11 @@ export default function MeetingTypesPage() {
   }
 
   if (loading) {
-    return <div className="p-6 text-sm text-gray-500">Загрузка типов встреч...</div>;
+    return (
+      <div className="p-6 text-sm text-gray-500">
+        Загрузка типов встреч...
+      </div>
+    );
   }
 
   return (
@@ -201,13 +212,10 @@ export default function MeetingTypesPage() {
 
       <div className="grid grid-cols-[380px_1fr] gap-5">
         <section className="space-y-3">
-          <div className="px-1 text-sm font-medium text-gray-500">
-            Всего типов: {meetingTypes.length}
-          </div>
-
           {meetingTypes.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-gray-200 bg-white p-5 text-sm leading-6 text-gray-500">
-              Типов встреч пока нет. Создай первый тип и добавь prompt для AI-анализа.
+              Типов встреч пока нет. Создай первый тип и добавь prompt для
+              AI-анализа.
             </div>
           ) : (
             meetingTypes.map((type) => {
@@ -258,38 +266,20 @@ export default function MeetingTypesPage() {
           )}
         </section>
 
-        <section className="rounded-3xl border border-gray-200 bg-white p-6">
-          <div className="mb-6 flex items-start justify-between gap-4">
-            <div>
-              <h2 className="font-heading text-xl font-semibold tracking-[-0.03em]">
-                {selectedType ? "Редактирование типа" : "Новый тип встречи"}
-              </h2>
-
-              <p className="mt-1 text-sm text-gray-500">
-                Prompt используется при AI-анализе встреч этого типа
-              </p>
-            </div>
-
-            {selectedType ? (
-              <button
-                type="button"
-                onClick={() => setDeleteCandidate(selectedType)}
-                className="inline-flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700 transition hover:bg-red-100"
-              >
-                <Trash2 size={16} />
-                Удалить
-              </button>
-            ) : null}
-          </div>
-
-          <div className="space-y-5">
+        <section className="flex max-h-[calc(100vh-180px)] flex-col rounded-3xl border border-gray-200 bg-white p-6">
+          <div className="flex-1 space-y-5 overflow-hidden">
             <label className="block space-y-2">
-              <span className="text-xs font-medium text-gray-500">Название типа</span>
+              <span className="text-xs font-medium text-gray-500">
+                Название
+              </span>
 
               <input
                 value={form.name}
                 onChange={(event) =>
-                  setForm((current) => ({ ...current, name: event.target.value }))
+                  setForm((current) => ({
+                    ...current,
+                    name: event.target.value,
+                  }))
                 }
                 placeholder="Например: Демо"
                 className="h-[50px] w-full rounded-2xl border border-gray-200 bg-[#f3f3f1] px-4 text-sm outline-none transition focus:border-black"
@@ -297,7 +287,9 @@ export default function MeetingTypesPage() {
             </label>
 
             <label className="block space-y-2">
-              <span className="text-xs font-medium text-gray-500">Описание</span>
+              <span className="text-xs font-medium text-gray-500">
+                Описание
+              </span>
 
               <textarea
                 value={form.description}
@@ -309,14 +301,17 @@ export default function MeetingTypesPage() {
                 }
                 placeholder="Коротко опиши, для чего нужен этот тип встречи"
                 rows={3}
-                className="w-full resize-none rounded-2xl border border-gray-200 bg-[#f3f3f1] p-4 text-sm leading-6 outline-none transition focus:border-black"
+                className={[
+                  "w-full resize-none overflow-y-auto rounded-2xl border border-gray-200 bg-[#f3f3f1] p-4 text-sm leading-6 outline-none transition focus:border-black",
+                  scrollAreaClassName,
+                ].join(" ")}
               />
             </label>
 
-            <label className="block space-y-2">
+            <label className="flex min-h-0 flex-1 flex-col space-y-2">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-xs font-medium text-gray-500">
-                  AI-промпт
+                  Prompt
                 </span>
 
                 <button
@@ -337,15 +332,35 @@ export default function MeetingTypesPage() {
               <textarea
                 value={form.prompt}
                 onChange={(event) =>
-                  setForm((current) => ({ ...current, prompt: event.target.value }))
+                  setForm((current) => ({
+                    ...current,
+                    prompt: event.target.value,
+                  }))
                 }
                 placeholder="Опиши, как AI должен анализировать встречи этого типа"
-                rows={14}
-                className="w-full resize-none rounded-2xl border border-gray-200 bg-[#f3f3f1] p-4 text-sm leading-6 outline-none transition focus:border-black"
+                className={[
+                  "min-h-[260px] flex-1 resize-none overflow-y-auto rounded-2xl border border-gray-200 bg-[#f3f3f1] p-4 text-sm leading-6 outline-none transition focus:border-black",
+                  scrollAreaClassName,
+                ].join(" ")}
               />
             </label>
+          </div>
 
-            <div className="flex justify-end gap-3 pt-2">
+          <div className="mt-5 flex shrink-0 items-center justify-between border-t border-gray-100 pt-5">
+            <div>
+              {selectedType ? (
+                <button
+                  type="button"
+                  onClick={() => setDeleteCandidate(selectedType)}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700 transition hover:bg-red-100"
+                >
+                  <Trash2 size={16} />
+                  Удалить
+                </button>
+              ) : null}
+            </div>
+
+            <div className="flex gap-3">
               <button
                 type="button"
                 onClick={() => {

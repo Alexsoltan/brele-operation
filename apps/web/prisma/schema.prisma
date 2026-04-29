@@ -56,18 +56,19 @@ model Workspace {
 }
 
 model User {
-  id          String   @id @default(cuid())
-  workspaceId String?
+  id           String   @id @default(cuid())
+  workspaceId  String?
 
-  email       String   @unique
-  name        String?
-  role        UserRole @default(ANALYST)
+  email        String   @unique
+  name         String?
+  role         UserRole @default(ANALYST)
+  passwordHash String?
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  deletedAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  deletedAt    DateTime?
 
-  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  workspace    Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
 
   @@index([workspaceId])
   @@index([role])
@@ -121,9 +122,9 @@ model MeetingType {
 }
 
 model Meeting {
-  id          String @id @default(cuid())
-  workspaceId String?
-  projectId   String
+  id            String @id @default(cuid())
+  workspaceId   String?
+  projectId     String
   meetingTypeId String?
 
   title       String

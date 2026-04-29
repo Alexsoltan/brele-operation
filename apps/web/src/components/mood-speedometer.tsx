@@ -1,103 +1,107 @@
-type IndicatorValue = "bad" | "neutral" | "good" | "low" | "medium" | "high";
+import { Minus, TrendingDown, TrendingUp } from "lucide-react";
 
-const config: Record<
-  IndicatorValue,
+type SpeedometerValue = "bad" | "neutral" | "good" | "low" | "medium" | "high";
+type Trend = "up" | "down" | "flat";
+type TrendKind = "mood" | "risk";
+
+const valueConfig: Record<
+  SpeedometerValue,
   {
     label: string;
-    position: string;
-    tone: string;
-    dot: string;
-    labels: [string, string, string];
+    caption: string;
+    tone: "green" | "red" | "neutral";
   }
 > = {
-  bad: {
-    label: "Плохо",
-    position: "left-[8%]",
-    tone: "bg-red-500 text-white",
-    dot: "bg-red-500",
-    labels: ["Плохо", "Нейтр.", "Хорошо"],
-  },
-  neutral: {
-    label: "Нейтрально",
-    position: "left-1/2",
-    tone: "bg-gray-500 text-white",
-    dot: "bg-gray-500",
-    labels: ["Плохо", "Нейтр.", "Хорошо"],
-  },
-  good: {
-    label: "Хорошо",
-    position: "left-[92%]",
-    tone: "bg-green-500 text-white",
-    dot: "bg-green-500",
-    labels: ["Плохо", "Нейтр.", "Хорошо"],
-  },
-  low: {
-    label: "Низкий",
-    position: "left-[8%]",
-    tone: "bg-green-500 text-white",
-    dot: "bg-green-500",
-    labels: ["Низкий", "Средний", "Высокий"],
-  },
-  medium: {
-    label: "Средний",
-    position: "left-1/2",
-    tone: "bg-gray-500 text-white",
-    dot: "bg-gray-500",
-    labels: ["Низкий", "Средний", "Высокий"],
-  },
-  high: {
-    label: "Высокий",
-    position: "left-[92%]",
-    tone: "bg-red-500 text-white",
-    dot: "bg-red-500",
-    labels: ["Низкий", "Средний", "Высокий"],
-  },
+  bad: { label: "Плохо", caption: "негативный сигнал", tone: "red" },
+  neutral: { label: "Нейтр.", caption: "без явного сигнала", tone: "neutral" },
+  good: { label: "Хорошо", caption: "позитивный сигнал", tone: "green" },
+  low: { label: "Низкий", caption: "риск под контролем", tone: "green" },
+  medium: { label: "Средний", caption: "требует внимания", tone: "neutral" },
+  high: { label: "Высокий", caption: "критичный сигнал", tone: "red" },
 };
+
+function TrendMark({ trend, kind }: { trend: Trend; kind: TrendKind }) {
+  const isPositive = kind === "mood" ? trend === "up" : trend === "down";
+  const isNegative = kind === "mood" ? trend === "down" : trend === "up";
+
+  const className = isPositive
+    ? "text-green-300 drop-shadow-[0_0_16px_rgba(134,239,172,0.45)]"
+    : isNegative
+      ? "text-red-300 drop-shadow-[0_0_16px_rgba(252,165,165,0.45)]"
+      : "text-white/45";
+
+  if (trend === "up") {
+    return <TrendingUp size={25} strokeWidth={2.4} className={className} />;
+  }
+
+  if (trend === "down") {
+    return <TrendingDown size={25} strokeWidth={2.4} className={className} />;
+  }
+
+  return <Minus size={25} strokeWidth={2.4} className={className} />;
+}
 
 export function MoodSpeedometer({
   title,
   value,
+  trend = "flat",
+  trendKind = "mood",
 }: {
   title: string;
-  value: IndicatorValue;
+  value: SpeedometerValue;
+  trend?: Trend;
+  trendKind?: TrendKind;
 }) {
-  const item = config[value];
+  const config = valueConfig[value];
+
+  const glow =
+    config.tone === "green"
+      ? "from-green-300/75 via-green-300/25 to-transparent"
+      : config.tone === "red"
+        ? "from-red-300/75 via-red-300/25 to-transparent"
+        : "from-white/25 via-white/10 to-transparent";
+
+  const dot =
+    config.tone === "green"
+      ? "bg-green-300 shadow-[0_0_28px_rgba(134,239,172,0.8)]"
+      : config.tone === "red"
+        ? "bg-red-300 shadow-[0_0_28px_rgba(252,165,165,0.8)]"
+        : "bg-gray-300 shadow-[0_0_22px_rgba(209,213,219,0.45)]";
 
   return (
-    <section className="rounded-3xl border border-gray-200 bg-white p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="font-heading text-lg font-semibold tracking-[-0.02em]">
-            {title}
-          </div>
+    <section className="relative overflow-hidden rounded-[32px] bg-[#20201f] p-6 text-white shadow-sm">
+      <div
+        className={[
+          "pointer-events-none absolute -left-20 bottom-[-88px] h-64 w-64 rounded-full bg-gradient-to-tr blur-2xl",
+          glow,
+        ].join(" ")}
+      />
 
-          <div
-            className={[
-              "mt-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold shadow-sm",
-              item.tone,
-            ].join(" ")}
-          >
-            {item.label}
-          </div>
+      <div
+        className={[
+          "pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-gradient-to-br blur-2xl",
+          glow,
+        ].join(" ")}
+      />
+
+      <div className="relative flex items-start justify-between gap-4">
+        <div className="font-heading text-xl font-semibold tracking-[-0.03em] text-white/90">
+          {title}
         </div>
+
+        <span className={["h-3.5 w-3.5 rounded-full", dot].join(" ")} />
       </div>
 
-      <div className="mt-7">
-        <div className="relative h-2 rounded-full bg-gray-200">
-          <div
-            className={[
-              "absolute top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white shadow-md",
-              item.position,
-              item.dot,
-            ].join(" ")}
-          />
+      <div className="relative mt-12">
+        <div className="flex items-center gap-3">
+          <div className="font-heading text-[34px] font-semibold leading-none tracking-[-0.055em]">
+            {config.label}
+          </div>
+
+          <TrendMark trend={trend} kind={trendKind} />
         </div>
 
-        <div className="mt-3 grid grid-cols-3 text-[11px] text-gray-400">
-          <span>{item.labels[0]}</span>
-          <span className="text-center">{item.labels[1]}</span>
-          <span className="text-right">{item.labels[2]}</span>
-        </div>
+        <div className="mt-3 text-sm text-white/45">{config.caption}</div>
       </div>
     </section>
   );

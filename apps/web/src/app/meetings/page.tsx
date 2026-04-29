@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 
-import { UiSelect } from "@/components/ui-select";
-import { MeetingCard } from "@/components/meeting-card";
 import { AddMeetingModal } from "@/components/add-meeting-modal";
+import { MeetingCard } from "@/components/meeting-card";
 import { PageTitle } from "@/components/page-title";
-import { Plus } from "lucide-react";
 import { PrimaryActionButton } from "@/components/primary-action-button";
+import { UiSelect } from "@/components/ui-select";
 
 type Mood = "good" | "neutral" | "bad";
 type Risk = "low" | "medium" | "high";
@@ -16,6 +15,7 @@ type Risk = "low" | "medium" | "high";
 type Meeting = {
   id: string;
   projectId: string;
+  meetingTypeId?: string | null;
   title: string;
   date: string;
   meetingType: string;
@@ -29,6 +29,10 @@ type Meeting = {
     id: string;
     name: string;
   };
+  type?: {
+    id: string;
+    name: string;
+  } | null;
 };
 
 type Project = {
@@ -39,7 +43,6 @@ type Project = {
 export default function MeetingsPage() {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-
   const [loading, setLoading] = useState(true);
 
   const [query, setQuery] = useState("");
@@ -62,8 +65,6 @@ export default function MeetingsPage() {
 
         setMeetings(meetingsData);
         setProjects(projectsData);
-      } catch (e) {
-        console.error(e);
       } finally {
         setLoading(false);
       }
@@ -91,7 +92,8 @@ export default function MeetingsPage() {
 
         return (
           meeting.title.toLowerCase().includes(q) ||
-          meeting.summary.toLowerCase().includes(q)
+          meeting.summary.toLowerCase().includes(q) ||
+          meeting.project?.name.toLowerCase().includes(q)
         );
       }
 
@@ -109,7 +111,6 @@ export default function MeetingsPage() {
 
   return (
     <div className="space-y-6">
-      {/* HEADER */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <PageTitle>Встречи</PageTitle>
@@ -119,86 +120,74 @@ export default function MeetingsPage() {
           </p>
         </div>
 
-        
         <PrimaryActionButton
           onClick={() => setIsModalOpen(true)}
           icon={<Plus size={16} />}
         >
           Добавить встречу
         </PrimaryActionButton>
-        
       </div>
 
-      {/* FILTERS */}
-      <section className="rounded-3xl border border-gray-200 bg-white p-6">
-        <div className="grid grid-cols-[1.4fr_0.9fr_0.7fr_0.7fr] items-start gap-3">
-          <div className="relative">
-            <Search
-              size={17}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-            />
-
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Поиск по встречам"
-              className="h-[50px] w-full rounded-2xl border border-gray-200 bg-[#f3f3f1] py-3 pl-11 pr-4 text-sm outline-none focus:border-black"
-            />
-          </div>
-
-          <UiSelect
-            value={projectFilter}
-            onChange={setProjectFilter}
-            options={[
-              { value: "all", label: "Все проекты" },
-              ...projects.map((p) => ({
-                value: p.id,
-                label: p.name,
-              })),
-            ]}
+      <section className="grid grid-cols-[1.4fr_0.9fr_0.7fr_0.7fr] items-start gap-3">
+        <div className="relative">
+          <Search
+            size={17}
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
           />
 
-          <UiSelect
-            value={moodFilter}
-            onChange={(v) => setMoodFilter(v as any)}
-            options={[
-              { value: "all", label: "Все настроения" },
-              { value: "good", label: "Хорошо" },
-              { value: "neutral", label: "Нейтрально" },
-              { value: "bad", label: "Плохо" },
-            ]}
-          />
-
-          <UiSelect
-            value={riskFilter}
-            onChange={(v) => setRiskFilter(v as any)}
-            options={[
-              { value: "all", label: "Все риски" },
-              { value: "low", label: "Низкий" },
-              { value: "medium", label: "Средний" },
-              { value: "high", label: "Высокий" },
-            ]}
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Поиск по встречам"
+            className="h-[50px] w-full rounded-2xl border border-gray-200 bg-white py-3 pl-11 pr-4 text-sm outline-none transition hover:border-gray-300 focus:border-black"
           />
         </div>
+
+        <UiSelect
+          value={projectFilter}
+          onChange={setProjectFilter}
+          options={[
+            { value: "all", label: "Все проекты" },
+            ...projects.map((project) => ({
+              value: project.id,
+              label: project.name,
+            })),
+          ]}
+        />
+
+        <UiSelect
+          value={moodFilter}
+          onChange={(value) => setMoodFilter(value as "all" | Mood)}
+          options={[
+            { value: "all", label: "Все настроения" },
+            { value: "good", label: "Хорошо" },
+            { value: "neutral", label: "Нейтрально" },
+            { value: "bad", label: "Плохо" },
+          ]}
+        />
+
+        <UiSelect
+          value={riskFilter}
+          onChange={(value) => setRiskFilter(value as "all" | Risk)}
+          options={[
+            { value: "all", label: "Все риски" },
+            { value: "low", label: "Низкий" },
+            { value: "medium", label: "Средний" },
+            { value: "high", label: "Высокий" },
+          ]}
+        />
       </section>
 
-      {/* LIST */}
-      <section className="rounded-3xl border border-gray-200 bg-white p-6">
-        <div className="mb-4">
-          <h2 className="font-heading text-lg font-semibold">
-            История встреч
-          </h2>
-
-          <div className="mt-1 text-sm text-gray-500">
-            Найдено: {filteredMeetings.length}
+      <section className="space-y-3">
+        {filteredMeetings.length === 0 ? (
+          <div className="rounded-3xl border border-dashed border-gray-200 bg-white p-8 text-sm text-gray-500">
+            Встречи не найдены.
           </div>
-        </div>
-
-        <div className="space-y-3">
-          {filteredMeetings.map((meeting) => (
+        ) : (
+          filteredMeetings.map((meeting) => (
             <MeetingCard key={meeting.id} meeting={meeting} />
-          ))}
-        </div>
+          ))
+        )}
       </section>
 
       <AddMeetingModal

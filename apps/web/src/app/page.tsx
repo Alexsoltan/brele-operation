@@ -17,6 +17,7 @@ import type { Meeting, Mood, Project, Risk } from "@/lib/types";
 
 type Trend = "up" | "down" | "flat";
 type SignalKind = "mood" | "risk";
+type ProjectTone = "green" | "red" | "neutral";
 
 function moodScore(value: Mood) {
   if (value === "good") return 3;
@@ -47,20 +48,28 @@ function getProjectTrend(
   const previous = meetings[1];
 
   if (field === "risk") {
-    const currentScore = riskScore(current.risk);
-    const previousScore = previous ? riskScore(previous.risk) : riskScore("medium");
-
-    return getTrend(currentScore, previousScore);
+    return getTrend(
+      riskScore(current.risk),
+      riskScore(previous?.risk ?? "medium"),
+    );
   }
 
-  const currentScore = moodScore(current[field]);
-  const previousScore = previous ? moodScore(previous[field]) : moodScore("neutral");
-
-  return getTrend(currentScore, previousScore);
+  return getTrend(
+    moodScore(current[field]),
+    moodScore(previous?.[field] ?? "neutral"),
+  );
 }
 
 function latestClientMood(project: Project, meetings: Meeting[]) {
   return meetings[0]?.clientMood ?? project.clientMood ?? "neutral";
+}
+
+function latestTeamMood(project: Project, meetings: Meeting[]) {
+  return meetings[0]?.teamMood ?? project.teamMood ?? "neutral";
+}
+
+function latestRisk(project: Project, meetings: Meeting[]) {
+  return meetings[0]?.risk ?? project.risk ?? "low";
 }
 
 function latestMeetingLabel(meetings: Meeting[]) {
@@ -81,19 +90,55 @@ function formatDate(value: string) {
   });
 }
 
+function projectTone(clientMood: Mood, teamMood: Mood, risk: Risk): ProjectTone {
+  if (clientMood === "bad" || teamMood === "bad" || risk === "high") {
+    return "red";
+  }
+
+  if (clientMood === "good" && teamMood === "good" && risk === "low") {
+    return "green";
+  }
+
+  return "neutral";
+}
+
+function projectStateLabel(clientMood: Mood, teamMood: Mood, risk: Risk) {
+  if (clientMood === "bad" || teamMood === "bad" || risk === "high") {
+    return "Есть риск";
+  }
+
+  if (clientMood === "good" && teamMood === "good" && risk === "low") {
+    return "Стабильно";
+  }
+
+  return "Нейтрально";
+}
+
+function projectStateCaption(clientMood: Mood, teamMood: Mood, risk: Risk) {
+  if (clientMood === "bad" || teamMood === "bad" || risk === "high") {
+    return "нужна реакция";
+  }
+
+  if (clientMood === "good" && teamMood === "good" && risk === "low") {
+    return "проект под контролем";
+  }
+
+  return "без явного сигнала";
+}
+
 function TrendIcon({ trend }: { trend: Trend }) {
   if (trend === "up") {
-    return <TrendingUp size={14} />;
+    return <TrendingUp size={15} strokeWidth={2.2} />;
   }
 
   if (trend === "down") {
-    return <TrendingDown size={14} />;
+    return <TrendingDown size={15} strokeWidth={2.2} />;
   }
 
-  return <Minus size={14} />;
+  return <Minus size={15} strokeWidth={2.2} />;
 }
 
-function SignalItem({
+function SignalChip({
   label,
   trend,
   kind,
@@ -104,74 +149,126 @@ function SignalItem({
   kind: SignalKind;
   icon: typeof Smile;
 }) {
-  const isPositive =
-    kind === "mood" ? trend === "up" : trend === "down";
-
-  const isNegative =
-    kind === "mood" ? trend === "down" : trend === "up";
+  const isPositive = kind === "mood" ? trend === "up" : trend === "down";
+  const isNegative = kind === "mood" ? trend === "down" : trend === "up";
 
   const tone = isPositive
-    ? "border-green-200 bg-green-50 text-green-700"
+    ? "bg-green-300/15 text-green-200 ring-green-300/25"
     : isNegative
-      ? "border-red-200 bg-red-50 text-red-700"
-      : "border-gray-200 bg-gray-100 text-gray-500";
+      ? "bg-red-300/15 text-red-200 ring-red-300/25"
+      : "bg-white/10 text-white/55 ring-white/10";
 
   return (
-    <div
+    <span
       className={[
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium",
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1",
         tone,
       ].join(" ")}
     >
       <Icon size={13} />
-      <span>{label}</span>
+      {label}
       <TrendIcon trend={trend} />
-    </div>
+    </span>
   );
 }
 
-function MiniGauge({ value }: { value: Mood }) {
-  const rotation = value === "good" ? 48 : value === "bad" ? -48 : 0;
+function ProjectDashboardCard({
+  project,
+  meetings,
+}: {
+  project: Project;
+  meetings: Meeting[];
+}) {
+  const clientMood = latestClientMood(project, meetings);
+  const teamMood = latestTeamMood(project, meetings);
+  const risk = latestRisk(project, meetings);
+
+  const clientTrend = getProjectTrend(meetings, "clientMood");
+  const teamTrend = getProjectTrend(meetings, "teamMood");
+  const riskTrend = getProjectTrend(meetings, "risk");
+
+  const tone = projectTone(clientMood, teamMood, risk);
+  const latestMeeting = latestMeetingLabel(meetings);
+
+  const glow =
+    tone === "green"
+      ? "from-green-300/70 via-green-300/25 to-transparent"
+      : tone === "red"
+        ? "from-red-300/70 via-red-300/25 to-transparent"
+        : "from-white/20 via-white/10 to-transparent";
+
+  const dot =
+    tone === "green"
+      ? "bg-green-300 shadow-[0_0_24px_rgba(134,239,172,0.75)]"
+      : tone === "red"
+        ? "bg-red-300 shadow-[0_0_24px_rgba(252,165,165,0.75)]"
+        : "bg-gray-300 shadow-[0_0_18px_rgba(209,213,219,0.45)]";
 
   return (
-    <div className="relative h-[74px] w-[116px] overflow-hidden">
+    <Link
+      href={`/projects/${project.id}`}
+      className="relative block overflow-hidden rounded-[32px] bg-[#20201f] p-6 text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+    >
       <div
-        className="absolute left-0 top-0 h-[116px] w-[116px] rounded-full"
-        style={{
-          background:
-            "conic-gradient(from 270deg, #fecaca 0deg, #fecaca 50deg, #e5e7eb 70deg, #e5e7eb 110deg, #bbf7d0 130deg, #bbf7d0 180deg, transparent 180deg, transparent 360deg)",
-          WebkitMask:
-            "radial-gradient(farthest-side, transparent calc(100% - 14px), #000 calc(100% - 13px))",
-          mask:
-            "radial-gradient(farthest-side, transparent calc(100% - 14px), #000 calc(100% - 13px))",
-        }}
+        className={[
+          "pointer-events-none absolute -left-20 -top-24 h-60 w-60 rounded-full bg-gradient-to-br blur-2xl",
+          glow,
+        ].join(" ")}
       />
 
-      <svg
-        viewBox="0 0 116 74"
-        className="absolute left-0 top-0 h-[74px] w-[116px]"
-      >
-        <g
-          style={{
-            transform: `rotate(${rotation}deg)`,
-            transformOrigin: "58px 58px",
-            transition: "transform 220ms ease",
-          }}
-        >
-          <line
-            x1="58"
-            y1="58"
-            x2="58"
-            y2="24"
-            stroke="#111827"
-            strokeWidth="5"
-            strokeLinecap="round"
-          />
-        </g>
+      <div
+        className={[
+          "pointer-events-none absolute -right-16 bottom-[-88px] h-60 w-60 rounded-full bg-gradient-to-tl blur-2xl",
+          glow,
+        ].join(" ")}
+      />
 
-        <circle cx="58" cy="58" r="6.5" fill="#111827" />
-      </svg>
-    </div>
+      <div className="relative flex items-start justify-between gap-4">
+        <h2 className="truncate font-heading text-xl font-semibold tracking-[-0.03em]">
+          {project.name}
+        </h2>
+
+        <span className={["h-3.5 w-3.5 rounded-full", dot].join(" ")} />
+      </div>
+
+      <div className="relative mt-12">
+        <div className="font-heading text-[32px] font-semibold leading-none tracking-[-0.06em]">
+          {projectStateLabel(clientMood, teamMood, risk)}
+        </div>
+
+        <div className="mt-3 text-sm text-white/45">
+          {projectStateCaption(clientMood, teamMood, risk)}
+        </div>
+      </div>
+
+      <div className="relative mt-6 flex flex-wrap gap-2">
+        <SignalChip
+          label="Клиент"
+          trend={clientTrend}
+          kind="mood"
+          icon={Smile}
+        />
+
+        <SignalChip
+          label="Команда"
+          trend={teamTrend}
+          kind="mood"
+          icon={Users}
+        />
+
+        <SignalChip
+          label="Риск"
+          trend={riskTrend}
+          kind="risk"
+          icon={ShieldAlert}
+        />
+      </div>
+
+      <div className="relative mt-6 flex items-center gap-2 text-xs text-white/40">
+        <CalendarDays size={14} />
+        Последняя встреча: {formatDate(latestMeeting)}
+      </div>
+    </Link>
   );
 }
 
@@ -231,16 +328,20 @@ export default function DashboardPage() {
   }, [meetingsByProject, projects]);
 
   if (loading) {
-    return <div className="p-6 text-sm text-gray-500">Загрузка дашборда...</div>;
+    return (
+      <div className="p-6 text-sm text-gray-500">
+        Загрузка дашборда...
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6">
       <header>
-        <PageTitle>Дашборд</PageTitle>
+        <PageTitle>Состояние проектов</PageTitle>
 
         <p className="mt-1 text-sm text-gray-500">
-          Обзор всех активных проектов, состояния клиентов
+          Обзор всех активных проектов и настроения клиентов
         </p>
       </header>
 
@@ -250,71 +351,13 @@ export default function DashboardPage() {
         </section>
       ) : (
         <section className="grid grid-cols-3 gap-4">
-          {sortedProjects.map((project) => {
-            const projectMeetings = meetingsByProject[project.id] ?? [];
-            const clientMood = latestClientMood(project, projectMeetings);
-
-            const clientTrend = getProjectTrend(
-              projectMeetings,
-              "clientMood",
-            );
-
-            const teamTrend = getProjectTrend(projectMeetings, "teamMood");
-
-            const riskTrend = getProjectTrend(projectMeetings, "risk");
-
-            const latestMeeting = latestMeetingLabel(projectMeetings);
-
-            return (
-              <Link
-                key={project.id}
-                href={`/projects/${project.id}`}
-                className="group rounded-3xl border border-gray-200 bg-white p-6 transition hover:border-gray-300 hover:shadow-sm"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <h2 className="truncate font-heading text-lg font-semibold">
-                      {project.name}
-                    </h2>
-
-                    <p className="mt-1 truncate text-sm text-gray-500">
-                      Клиент: {project.client ?? "Клиент не указан"}
-                    </p>
-                  </div>
-
-                  <MiniGauge value={clientMood} />
-                </div>
-
-                <div className="mt-5 flex flex-wrap gap-2">
-                  <SignalItem
-                    label="Клиент"
-                    trend={clientTrend}
-                    kind="mood"
-                    icon={Smile}
-                  />
-
-                  <SignalItem
-                    label="Команда"
-                    trend={teamTrend}
-                    kind="mood"
-                    icon={Users}
-                  />
-
-                  <SignalItem
-                    label="Риск"
-                    trend={riskTrend}
-                    kind="risk"
-                    icon={ShieldAlert}
-                  />
-                </div>
-
-                <div className="mt-6 flex items-center gap-2 text-xs text-gray-400">
-                  <CalendarDays size={14} />
-                  Последняя встреча: {formatDate(latestMeeting)}
-                </div>
-              </Link>
-            );
-          })}
+          {sortedProjects.map((project) => (
+            <ProjectDashboardCard
+              key={project.id}
+              project={project}
+              meetings={meetingsByProject[project.id] ?? []}
+            />
+          ))}
         </section>
       )}
     </div>

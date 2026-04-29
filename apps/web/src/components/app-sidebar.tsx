@@ -23,25 +23,18 @@ export function AppSidebar() {
   const pathname = usePathname() ?? "";
 
   return (
-    <aside className="fixed left-0 top-0 z-20 flex h-screen w-64 flex-col border-r border-gray-200 bg-white">
-      
-      {/* LOGO BLOCK */}
-      <div className="px-4 pb-12 pt-6">
-  <Link href="/" className="block leading-none">
-    <img
-      src="/logo.png"
-      alt="Brele"
-      className="w-32 object-contain"
-    />
+    <aside className="fixed left-0 top-0 z-20 flex h-screen w-72 flex-col bg-[#1f1f1f] py-5">
+      <div className="pb-10 pl-8 pt-6">
+        <Link href="/" className="block leading-none">
+          <img
+            src="/brele-logo-white.svg"
+            alt="Brele"
+            className="w-32 object-contain"
+          />
+        </Link>
+      </div>
 
-    <div className="-mt-1 pl-3 font-body text-xs font-medium uppercase tracking-[0.22em] text-gray-400">
-      Operations
-    </div>
-  </Link>
-</div>
-
-      {/* NAV */}
-      <nav className="flex-1 space-y-1.5 px-4">
+      <nav className="flex-1 space-y-2 px-4">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive =
@@ -53,17 +46,19 @@ export function AppSidebar() {
               key={item.href}
               href={item.href}
               className={[
-                "group flex items-center gap-2.5 rounded-xl px-3 py-2.5 font-body text-sm font-medium transition",
+                "group flex items-center gap-3 rounded-full px-4 py-3 font-body text-sm font-medium transition",
                 isActive
-                  ? "bg-black text-white shadow-sm"
-                  : "text-gray-600 hover:bg-gray-100 hover:text-black",
+                  ? "bg-white text-black shadow-sm"
+                  : "text-white/70 hover:bg-white/10 hover:text-white",
               ].join(" ")}
             >
               <Icon
-                size={17}
+                size={18}
                 className={[
                   "shrink-0 transition",
-                  isActive ? "text-white" : "text-gray-500 group-hover:text-black",
+                  isActive
+                    ? "text-black"
+                    : "text-white/65 group-hover:text-white",
                 ].join(" ")}
               />
 
@@ -73,24 +68,23 @@ export function AppSidebar() {
         })}
       </nav>
 
-      {/* SETTINGS */}
-      <div className="px-4 pb-7">
+      <div className="px-4 pt-5">
         <Link
           href="/settings"
           className={[
-            "group flex items-center gap-2.5 rounded-xl px-3 py-2.5 font-body text-sm font-medium transition",
+            "group flex items-center gap-3 rounded-full px-4 py-3 font-body text-sm font-medium transition",
             pathname.startsWith("/settings")
-              ? "bg-black text-white shadow-sm"
-              : "text-gray-600 hover:bg-gray-100 hover:text-black",
+              ? "bg-white text-black shadow-sm"
+              : "text-white/70 hover:bg-white/10 hover:text-white",
           ].join(" ")}
         >
           <Settings
-            size={17}
+            size={18}
             className={[
               "shrink-0 transition",
               pathname.startsWith("/settings")
-                ? "text-white"
-                : "text-gray-500 group-hover:text-black",
+                ? "text-black"
+                : "text-white/65 group-hover:text-white",
             ].join(" ")}
           />
 
