@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentWorkspaceId } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
+  const workspaceId = await getCurrentWorkspaceId();
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId");
 
   const meetings = await prisma.meeting.findMany({
     where: {
+      workspaceId,
       deletedAt: null,
       project: {
+        workspaceId,
         deletedAt: null,
       },
       ...(projectId ? { projectId } : {}),
@@ -25,6 +29,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const workspaceId = await getCurrentWorkspaceId();
   const body = await req.json();
 
   const projectId = String(body?.projectId ?? "").trim();
@@ -33,11 +38,27 @@ export async function POST(req: NextRequest) {
   const transcriptText = String(body?.transcriptText ?? body?.text ?? "").trim();
 
   if (!projectId) {
-    return NextResponse.json({ error: "projectId is required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "projectId is required" },
+      { status: 400 },
+    );
+  }
+
+  const project = await prisma.project.findFirst({
+    where: {
+      id: projectId,
+      workspaceId,
+      deletedAt: null,
+    },
+  });
+
+  if (!project) {
+    return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
   const meeting = await prisma.meeting.create({
     data: {
+      workspaceId,
       projectId,
       title,
       date: body?.date ? new Date(body.date) : new Date(),

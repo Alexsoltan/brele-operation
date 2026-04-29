@@ -56,10 +56,19 @@ export default function ProjectsPage() {
           </p>
         </div>
 
-        <button className="inline-flex items-center gap-2 rounded-2xl bg-black px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800">
-          <Plus size={16} />
-          Добавить проект
-        </button>
+        <Link
+
+  href="/projects/new"
+
+  className="inline-flex items-center gap-2 rounded-2xl bg-black px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800"
+
+>
+
+  <Plus size={16} />
+
+  Добавить проект
+
+</Link>
       </div>
 
       {/* LIST */}

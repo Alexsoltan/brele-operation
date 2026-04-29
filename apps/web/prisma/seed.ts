@@ -2,10 +2,7 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import {
   PrismaClient,
-  type Mood,
-  type Risk,
-  type ProjectStatus,
-  type MeetingAnalysisStatus,
+  type UserRole,
 } from "../src/generated/prisma/client";
 
 const adapter = new PrismaPg({
@@ -14,91 +11,31 @@ const adapter = new PrismaPg({
 
 const prisma = new PrismaClient({ adapter });
 
-const projects = [
-  {
-    id: "freeport",
-    slug: "freeport",
-    name: "Freeport",
-    client: "ООО «Супертехнологии»",
-    status: "active" as ProjectStatus,
-    clientMood: "neutral" as Mood,
-    teamMood: "neutral" as Mood,
-    risk: "low" as Risk,
-  },
-  {
-    id: "alfa-mobile-app",
-    slug: "alfa-mobile-app",
-    name: "Альфа-Банк — Mobile App",
-    client: "Альфа-Банк",
-    status: "active" as ProjectStatus,
-    clientMood: "good" as Mood,
-    teamMood: "good" as Mood,
-    risk: "low" as Risk,
-  },
-  {
-    id: "beta-crm",
-    slug: "beta-crm",
-    name: "Beta Group — CRM",
-    client: "Beta Group",
-    status: "active" as ProjectStatus,
-    clientMood: "neutral" as Mood,
-    teamMood: "neutral" as Mood,
-    risk: "medium" as Risk,
-  },
-  {
-    id: "gamma-website",
-    slug: "gamma-website",
-    name: "Gamma — Website",
-    client: "Gamma",
-    status: "active" as ProjectStatus,
-    clientMood: "bad" as Mood,
-    teamMood: "neutral" as Mood,
-    risk: "high" as Risk,
-  },
-];
-
-const meetings = [
-  {
-    id: "meeting-1",
-    projectId: "alfa-mobile-app",
-    title: "Демо",
-    date: new Date("2026-04-24"),
-    meetingType: "demo",
-    transcriptText: "",
-    summary:
-      "Клиент в целом принял направление дизайна, но попросил отдельно уточнить сроки по мобильной версии и порядок согласования следующих экранов.",
-    highlights: [
-      "Клиент принял направление дизайна.",
-      "Нужно уточнить сроки мобильной версии.",
-      "Следующий шаг — согласование следующих экранов.",
-    ],
-    clientMood: "good" as Mood,
-    teamMood: "good" as Mood,
-    risk: "low" as Risk,
-    analysisStatus: "analyzed" as MeetingAnalysisStatus,
-    modelName: "seed",
-    analyzedAt: new Date("2026-04-24T12:00:00.000Z"),
-  },
-];
-
 async function main() {
-  for (const project of projects) {
-    await prisma.project.upsert({
-      where: { id: project.id },
-      update: project,
-      create: project,
-    });
-  }
+  await prisma.meeting.deleteMany();
+  await prisma.project.deleteMany();
+  await prisma.user.deleteMany();
+  await prisma.workspace.deleteMany();
 
-  for (const meeting of meetings) {
-    await prisma.meeting.upsert({
-      where: { id: meeting.id },
-      update: meeting,
-      create: meeting,
-    });
-  }
+  const workspace = await prisma.workspace.create({
+    data: {
+      name: "Brele",
+      slug: "brele",
+    },
+  });
+
+  await prisma.user.create({
+    data: {
+      workspaceId: workspace.id,
+      email: "admin@brele.local",
+      name: "Admin",
+      role: "ADMIN" as UserRole,
+    },
+  });
 
   console.log("Seed completed");
+  console.log(`Workspace: ${workspace.name}`);
+  console.log("Admin: admin@brele.local");
 }
 
 main()

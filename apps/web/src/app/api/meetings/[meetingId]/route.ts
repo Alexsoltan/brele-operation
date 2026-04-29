@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentWorkspaceId } from "@/lib/auth";
 
 export async function GET(
   _req: NextRequest,
   context: { params: { meetingId: string } },
 ) {
+  const workspaceId = await getCurrentWorkspaceId();
+
   const meeting = await prisma.meeting.findFirst({
     where: {
       id: context.params.meetingId,
+      workspaceId,
       deletedAt: null,
     },
     include: {
@@ -26,7 +30,20 @@ export async function PATCH(
   req: NextRequest,
   context: { params: { meetingId: string } },
 ) {
+  const workspaceId = await getCurrentWorkspaceId();
   const body = await req.json();
+
+  const existingMeeting = await prisma.meeting.findFirst({
+    where: {
+      id: context.params.meetingId,
+      workspaceId,
+      deletedAt: null,
+    },
+  });
+
+  if (!existingMeeting) {
+    return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
+  }
 
   const meeting = await prisma.meeting.update({
     where: {
@@ -47,8 +64,14 @@ export async function PATCH(
       teamMood: body?.teamMood,
       risk: body?.risk,
       analysisStatus: body?.analysisStatus,
-      modelName: typeof body?.modelName === "string" ? body.modelName : undefined,
-      analyzedAt: body?.analyzedAt ? new Date(body.analyzedAt) : undefined,
+      modelName:
+        typeof body?.modelName === "string" ? body.modelName : undefined,
+      analyzedAt:
+        body?.analyzedAt === null
+          ? null
+          : body?.analyzedAt
+            ? new Date(body.analyzedAt)
+            : undefined,
     },
     include: {
       project: true,
@@ -62,6 +85,20 @@ export async function DELETE(
   _req: NextRequest,
   context: { params: { meetingId: string } },
 ) {
+  const workspaceId = await getCurrentWorkspaceId();
+
+  const existingMeeting = await prisma.meeting.findFirst({
+    where: {
+      id: context.params.meetingId,
+      workspaceId,
+      deletedAt: null,
+    },
+  });
+
+  if (!existingMeeting) {
+    return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
+  }
+
   const meeting = await prisma.meeting.update({
     where: {
       id: context.params.meetingId,

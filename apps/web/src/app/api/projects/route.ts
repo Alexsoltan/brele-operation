@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentWorkspaceId } from "@/lib/auth";
 
 function slugify(value: string) {
   return value
@@ -10,8 +11,11 @@ function slugify(value: string) {
 }
 
 export async function GET() {
+  const workspaceId = await getCurrentWorkspaceId();
+
   const projects = await prisma.project.findMany({
     where: {
+      workspaceId,
       deletedAt: null,
     },
     orderBy: {
@@ -23,18 +27,23 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const workspaceId = await getCurrentWorkspaceId();
   const body = await req.json();
 
   const name = String(body?.name ?? "").trim();
   const client = String(body?.client ?? body?.clientName ?? "").trim();
 
   if (!name) {
-    return NextResponse.json({ error: "Project name is required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Project name is required" },
+      { status: 400 },
+    );
   }
 
   const project = await prisma.project.create({
     data: {
-      slug: slugify(name),
+      workspaceId,
+      slug: `${slugify(name)}-${Date.now()}`,
       name,
       client: client || null,
       status: "active",

@@ -7,6 +7,12 @@ datasource db {
   provider = "postgresql"
 }
 
+enum UserRole {
+  ADMIN
+  MANAGER
+  ANALYST
+}
+
 enum ProjectStatus {
   active
   hold
@@ -32,29 +38,70 @@ enum MeetingAnalysisStatus {
   error
 }
 
-model Project {
-  id     String        @id @default(cuid())
-  slug   String        @unique
-  name   String
-  client String?
-  status ProjectStatus @default(active)
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
 
-  clientMood Mood @default(neutral)
-  teamMood   Mood @default(neutral)
-  risk       Risk @default(low)
-
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   deletedAt DateTime?
 
+  users    User[]
+  projects Project[]
   meetings Meeting[]
 
   @@index([deletedAt])
 }
 
-model Meeting {
+model User {
   id          String   @id @default(cuid())
+  workspaceId String?
+
+  email       String   @unique
+  name        String?
+  role        UserRole @default(ANALYST)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId])
+  @@index([role])
+  @@index([deletedAt])
+}
+
+model Project {
+  id          String        @id @default(cuid())
+  workspaceId String?
+
+  slug        String        @unique
+  name        String
+  client      String?
+  status      ProjectStatus @default(active)
+
+  clientMood  Mood @default(neutral)
+  teamMood    Mood @default(neutral)
+  risk        Risk @default(low)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  meetings    Meeting[]
+
+  @@index([workspaceId])
+  @@index([deletedAt])
+}
+
+model Meeting {
+  id          String @id @default(cuid())
+  workspaceId String?
   projectId   String
+
   title       String
   date        DateTime
   meetingType String
@@ -75,8 +122,10 @@ model Meeting {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
+  @@index([workspaceId])
   @@index([projectId])
   @@index([date])
   @@index([deletedAt])
