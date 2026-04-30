@@ -11,6 +11,7 @@ import { MoodTrendChart } from "@/components/mood-trend-chart";
 import { PageTitle } from "@/components/page-title";
 import { ProjectSignals } from "@/components/project-signals";
 import type { Meeting, Mood, Project, Risk } from "@/lib/types";
+import { ProjectHealthOverview } from "@/components/project-health-overview";
 
 type Trend = "up" | "down" | "flat";
 
@@ -166,7 +167,8 @@ export default function ProjectPage() {
         />
       </section>
 
-      <MoodTrendChart meetings={meetings} />
+    <ProjectHealthOverview meetings={meetings} />
+     <MoodTrendChart meetings={meetings} />
 
       <div className="grid grid-cols-[1.4fr_0.75fr] items-start gap-5">
         <section className="rounded-3xl border border-gray-200 bg-white p-6">

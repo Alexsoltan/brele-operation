@@ -31,10 +31,64 @@ function riskScore(value: Risk) {
   return 1;
 }
 
+function clamp(value: number) {
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
 function getTrend(current: number, previous: number): Trend {
   if (current > previous) return "up";
   if (current < previous) return "down";
   return "flat";
+}
+
+function meetingImpact(meeting: Meeting) {
+  let impact = 0;
+
+  if (meeting.analysisStatus === "error") impact -= 10;
+
+  if (meeting.risk === "high") impact -= 35;
+  if (meeting.risk === "medium") impact -= 18;
+  if (meeting.risk === "low") impact += 2;
+
+  if (meeting.hasClient !== false) {
+    if (meeting.clientMood === "bad") impact -= 25;
+    if (meeting.clientMood === "neutral") impact -= 6;
+    if (meeting.clientMood === "good") impact += 6;
+  }
+
+  if (meeting.teamMood === "bad") impact -= 20;
+  if (meeting.teamMood === "neutral") impact -= 4;
+  if (meeting.teamMood === "good") impact += 5;
+
+  return impact;
+}
+
+function projectHealthScore(meetings: Meeting[]) {
+  const sortedMeetings = [...meetings].sort((a, b) =>
+    a.date.localeCompare(b.date),
+  );
+
+  let score = 100;
+
+  sortedMeetings.forEach((meeting) => {
+    score = clamp(score + meetingImpact(meeting));
+  });
+
+  return score;
+}
+
+function previousProjectHealthScore(meetings: Meeting[]) {
+  if (meetings.length <= 1) return 100;
+
+  const sortedMeetings = [...meetings].sort((a, b) =>
+    a.date.localeCompare(b.date),
+  );
+
+  return projectHealthScore(sortedMeetings.slice(0, -1));
+}
+
+function projectHealthTrend(meetings: Meeting[]): Trend {
+  return getTrend(projectHealthScore(meetings), previousProjectHealthScore(meetings));
 }
 
 function getProjectTrend(
@@ -61,7 +115,11 @@ function getProjectTrend(
 }
 
 function latestClientMood(project: Project, meetings: Meeting[]) {
-  return meetings[0]?.clientMood ?? project.clientMood ?? "neutral";
+  const latestClientMeeting = meetings.find(
+    (meeting) => meeting.hasClient !== false,
+  );
+
+  return latestClientMeeting?.clientMood ?? project.clientMood ?? "neutral";
 }
 
 function latestTeamMood(project: Project, meetings: Meeting[]) {
@@ -90,40 +148,22 @@ function formatDate(value: string) {
   });
 }
 
-function projectTone(clientMood: Mood, teamMood: Mood, risk: Risk): ProjectTone {
-  if (clientMood === "bad" || teamMood === "bad" || risk === "high") {
-    return "red";
-  }
-
-  if (clientMood === "good" && teamMood === "good" && risk === "low") {
-    return "green";
-  }
-
-  return "neutral";
+function projectToneByHealth(score: number): ProjectTone {
+  if (score <= 45) return "red";
+  if (score <= 75) return "neutral";
+  return "green";
 }
 
-function projectStateLabel(clientMood: Mood, teamMood: Mood, risk: Risk) {
-  if (clientMood === "bad" || teamMood === "bad" || risk === "high") {
-    return "Есть риск";
-  }
-
-  if (clientMood === "good" && teamMood === "good" && risk === "low") {
-    return "Стабильно";
-  }
-
-  return "Нейтрально";
+function projectStateLabelByHealth(score: number) {
+  if (score <= 45) return "Есть риск";
+  if (score <= 75) return "Нейтрально";
+  return "Стабильно";
 }
 
-function projectStateCaption(clientMood: Mood, teamMood: Mood, risk: Risk) {
-  if (clientMood === "bad" || teamMood === "bad" || risk === "high") {
-    return "нужна реакция";
-  }
-
-  if (clientMood === "good" && teamMood === "good" && risk === "low") {
-    return "проект под контролем";
-  }
-
-  return "без явного сигнала";
+function projectStateCaptionByHealth(score: number) {
+  if (score <= 45) return "нужна реакция";
+  if (score <= 75) return "есть сигналы просадки";
+  return "проект под контролем";
 }
 
 function TrendIcon({ trend }: { trend: Trend }) {
@@ -136,6 +176,25 @@ function TrendIcon({ trend }: { trend: Trend }) {
   }
 
   return <Minus size={15} strokeWidth={2.2} />;
+}
+
+function ProjectStateTrendIcon({ trend }: { trend: Trend }) {
+  const className =
+    trend === "up"
+      ? "text-green-200 drop-shadow-[0_0_16px_rgba(134,239,172,0.5)]"
+      : trend === "down"
+        ? "text-red-200 drop-shadow-[0_0_16px_rgba(252,165,165,0.5)]"
+        : "text-white/45";
+
+  if (trend === "up") {
+    return <TrendingUp size={28} strokeWidth={2.4} className={className} />;
+  }
+
+  if (trend === "down") {
+    return <TrendingDown size={28} strokeWidth={2.4} className={className} />;
+  }
+
+  return <Minus size={28} strokeWidth={2.4} className={className} />;
 }
 
 function SignalChip({
@@ -183,11 +242,17 @@ function ProjectDashboardCard({
   const teamMood = latestTeamMood(project, meetings);
   const risk = latestRisk(project, meetings);
 
-  const clientTrend = getProjectTrend(meetings, "clientMood");
+  const healthScore = projectHealthScore(meetings);
+  const healthTrend = projectHealthTrend(meetings);
+
+  const clientTrend = getProjectTrend(
+    meetings.filter((meeting) => meeting.hasClient !== false),
+    "clientMood",
+  );
   const teamTrend = getProjectTrend(meetings, "teamMood");
   const riskTrend = getProjectTrend(meetings, "risk");
 
-  const tone = projectTone(clientMood, teamMood, risk);
+  const tone = projectToneByHealth(healthScore);
   const latestMeeting = latestMeetingLabel(meetings);
 
   const glow =
@@ -232,12 +297,16 @@ function ProjectDashboardCard({
       </div>
 
       <div className="relative mt-12">
-        <div className="font-heading text-[32px] font-semibold leading-none tracking-[-0.06em]">
-          {projectStateLabel(clientMood, teamMood, risk)}
+        <div className="flex items-center gap-3">
+          <div className="font-heading text-[32px] font-semibold leading-none tracking-[-0.06em]">
+            {projectStateLabelByHealth(healthScore)}
+          </div>
+
+          <ProjectStateTrendIcon trend={healthTrend} />
         </div>
 
         <div className="mt-3 text-sm text-white/45">
-          {projectStateCaption(clientMood, teamMood, risk)}
+          {projectStateCaptionByHealth(healthScore)}
         </div>
       </div>
 
@@ -320,10 +389,7 @@ export default function DashboardPage() {
       const aMeetings = meetingsByProject[a.id] ?? [];
       const bMeetings = meetingsByProject[b.id] ?? [];
 
-      return (
-        moodScore(latestClientMood(a, aMeetings)) -
-        moodScore(latestClientMood(b, bMeetings))
-      );
+      return projectHealthScore(aMeetings) - projectHealthScore(bMeetings);
     });
   }, [meetingsByProject, projects]);
 
@@ -341,7 +407,7 @@ export default function DashboardPage() {
         <PageTitle>Состояние проектов</PageTitle>
 
         <p className="mt-1 text-sm text-gray-500">
-          Обзор всех активных проектов и настроения клиентов
+          Обзор всех активных проектов и здоровья проектов
         </p>
       </header>
 
