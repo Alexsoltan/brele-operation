@@ -170,7 +170,14 @@ export function MoodTrendChart({ meetings }: { meetings: Meeting[] }) {
           b.date.localeCompare(a.date),
         )[0];
 
-        clientMood = latestMeeting.clientMood;
+        const latestClientMeeting = [...dayMeetings]
+          .filter((meeting) => meeting.hasClient !== false)
+          .sort((a, b) => b.date.localeCompare(a.date))[0];
+
+        if (latestClientMeeting) {
+          clientMood = latestClientMeeting.clientMood;
+        }
+
         teamMood = latestMeeting.teamMood;
       }
 
@@ -184,6 +191,9 @@ export function MoodTrendChart({ meetings }: { meetings: Meeting[] }) {
         clientY: moodY[clientMood] + (sameMood ? -5 : 0),
         teamY: moodY[teamMood] + (sameMood ? 5 : 0),
         meetings: dayMeetings,
+        clientMeetings: dayMeetings.filter(
+          (meeting) => meeting.hasClient !== false,
+        ),
       };
     });
 
@@ -303,6 +313,7 @@ export function MoodTrendChart({ meetings }: { meetings: Meeting[] }) {
 
         {chart.points.map((point, index) => {
           const hasMeeting = point.meetings.length > 0;
+          const hasClientMeeting = point.clientMeetings.length > 0;
           const label = formatTick(point.date, index, chart.total);
 
           return (
@@ -328,14 +339,16 @@ export function MoodTrendChart({ meetings }: { meetings: Meeting[] }) {
                     strokeWidth="1.5"
                   />
 
-                  <circle
-                    cx={point.x}
-                    cy={point.clientY}
-                    r="4.4"
-                    fill="#111827"
-                    stroke="white"
-                    strokeWidth="1.5"
-                  />
+                  {hasClientMeeting ? (
+                    <circle
+                      cx={point.x}
+                      cy={point.clientY}
+                      r="4.4"
+                      fill="#111827"
+                      stroke="white"
+                      strokeWidth="1.5"
+                    />
+                  ) : null}
                 </>
               ) : null}
 

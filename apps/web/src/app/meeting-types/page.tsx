@@ -14,12 +14,14 @@ type MeetingType = {
   description: string | null;
   prompt: string;
   isDefault: boolean;
+  hasClient: boolean;
 };
 
 const emptyForm = {
   name: "",
   description: "",
   prompt: "",
+  hasClient: true,
 };
 
 const scrollAreaClassName =
@@ -47,6 +49,14 @@ export default function MeetingTypesPage() {
 
     try {
       const response = await fetch("/api/meeting-types", { cache: "no-store" });
+
+      if (!response.ok) {
+        setMeetingTypes([]);
+        setSelectedId(null);
+        setForm(emptyForm);
+        return;
+      }
+
       const data = (await response.json()) as MeetingType[];
 
       setMeetingTypes(data);
@@ -67,6 +77,7 @@ export default function MeetingTypesPage() {
         name: current.name,
         description: current.description ?? "",
         prompt: current.prompt,
+        hasClient: current.hasClient,
       });
     } finally {
       setLoading(false);
@@ -83,6 +94,7 @@ export default function MeetingTypesPage() {
       name: type.name,
       description: type.description ?? "",
       prompt: type.prompt,
+      hasClient: type.hasClient,
     });
   }
 
@@ -108,6 +120,7 @@ export default function MeetingTypesPage() {
             name: form.name.trim(),
             description: form.description.trim(),
             prompt: form.prompt.trim(),
+            hasClient: form.hasClient,
           }),
         },
       );
@@ -238,18 +251,33 @@ export default function MeetingTypesPage() {
                       {type.name}
                     </div>
 
-                    {type.isDefault ? (
+                    <div className="flex items-center gap-2">
                       <span
                         className={[
                           "rounded-full px-2 py-0.5 text-xs",
                           isActive
                             ? "bg-white/15 text-white"
-                            : "bg-gray-100 text-gray-500",
+                            : type.hasClient
+                              ? "bg-gray-100 text-gray-500"
+                              : "bg-orange-50 text-orange-700",
                         ].join(" ")}
                       >
-                        default
+                        {type.hasClient ? "с клиентом" : "без клиента"}
                       </span>
-                    ) : null}
+
+                      {type.isDefault ? (
+                        <span
+                          className={[
+                            "rounded-full px-2 py-0.5 text-xs",
+                            isActive
+                              ? "bg-white/15 text-white"
+                              : "bg-gray-100 text-gray-500",
+                          ].join(" ")}
+                        >
+                          default
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
 
                   <div
@@ -308,6 +336,32 @@ export default function MeetingTypesPage() {
               />
             </label>
 
+            <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-gray-200 bg-[#f3f3f1] p-4">
+              <input
+                type="checkbox"
+                checked={form.hasClient}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    hasClient: event.target.checked,
+                  }))
+                }
+                className="mt-1 h-4 w-4 rounded border-gray-300 accent-black"
+              />
+
+              <span>
+                <span className="block text-sm font-medium text-gray-900">
+                  На встрече присутствует клиент
+                </span>
+
+                <span className="mt-1 block text-xs leading-5 text-gray-500">
+                  Если выключено, встречи этого типа не будут влиять на динамику
+                  настроения клиента. Команда и риски всё равно будут
+                  анализироваться.
+                </span>
+              </span>
+            </label>
+
             <label className="flex min-h-0 flex-1 flex-col space-y-2">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-xs font-medium text-gray-500">
@@ -339,7 +393,7 @@ export default function MeetingTypesPage() {
                 }
                 placeholder="Опиши, как AI должен анализировать встречи этого типа"
                 className={[
-                  "min-h-[260px] flex-1 resize-none overflow-y-auto rounded-2xl border border-gray-200 bg-[#f3f3f1] p-4 text-sm leading-6 outline-none transition focus:border-black",
+                  "min-h-[220px] flex-1 resize-none overflow-y-auto rounded-2xl border border-gray-200 bg-[#f3f3f1] p-4 text-sm leading-6 outline-none transition focus:border-black",
                   scrollAreaClassName,
                 ].join(" ")}
               />

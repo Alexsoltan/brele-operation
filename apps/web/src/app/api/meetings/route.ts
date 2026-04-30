@@ -58,6 +58,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
+  let hasClient = body?.hasClient !== false;
+
   if (meetingTypeId) {
     const type = await prisma.meetingType.findFirst({
       where: {
@@ -73,6 +75,8 @@ export async function POST(req: NextRequest) {
         { status: 404 },
       );
     }
+
+    hasClient = type.hasClient;
   }
 
   const meeting = await prisma.meeting.create({
@@ -83,6 +87,7 @@ export async function POST(req: NextRequest) {
       title,
       date: body?.date ? new Date(body.date) : new Date(),
       meetingType,
+      hasClient,
       transcriptText,
       summary: body?.summary ?? "AI-анализ встречи выполняется...",
       highlights: Array.isArray(body?.highlights) ? body.highlights : [],

@@ -108,6 +108,7 @@ model MeetingType {
   description String?
   prompt      String
   isDefault   Boolean @default(false)
+  hasClient   Boolean @default(true)
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -130,6 +131,7 @@ model Meeting {
   title       String
   date        DateTime
   meetingType String
+  hasClient   Boolean @default(true)
 
   transcriptText String?
   summary        String
@@ -155,5 +157,6 @@ model Meeting {
   @@index([projectId])
   @@index([meetingTypeId])
   @@index([date])
+  @@index([hasClient])
   @@index([deletedAt])
 }

@@ -17,9 +17,11 @@ export type Project = {
 export type Meeting = {
   id: string;
   projectId: string;
+  meetingTypeId?: string | null;
   title: string;
   date: string;
   meetingType: string;
+  hasClient?: boolean;
   transcriptText?: string | null;
   summary: string;
   highlights: string[];

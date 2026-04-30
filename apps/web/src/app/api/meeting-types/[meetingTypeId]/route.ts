@@ -64,6 +64,8 @@ export async function PATCH(
         typeof body?.prompt === "string" ? body.prompt.trim() : undefined,
       isDefault:
         typeof body?.isDefault === "boolean" ? body.isDefault : undefined,
+      hasClient:
+        typeof body?.hasClient === "boolean" ? body.hasClient : undefined,
     },
   });
 

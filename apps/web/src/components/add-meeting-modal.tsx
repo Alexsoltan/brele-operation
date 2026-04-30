@@ -26,6 +26,7 @@ type MeetingType = {
   description: string | null;
   prompt: string;
   isDefault: boolean;
+  hasClient: boolean;
 };
 
 type Meeting = {
@@ -35,6 +36,7 @@ type Meeting = {
   title: string;
   date: string;
   meetingType: string;
+  hasClient: boolean;
   summary: string;
   highlights: string[];
   clientMood: "good" | "neutral" | "bad";
@@ -136,6 +138,13 @@ export function AddMeetingModal({
   useEffect(() => {
     async function loadMeetingTypes() {
       const response = await fetch("/api/meeting-types");
+
+      if (!response.ok) {
+        setMeetingTypes([]);
+        setMeetingTypeId("");
+        return;
+      }
+
       const data = (await response.json()) as MeetingType[];
 
       setMeetingTypes(data);
@@ -167,6 +176,9 @@ export function AddMeetingModal({
 
   async function reloadMeetings() {
     const response = await fetch("/api/meetings");
+
+    if (!response.ok) return;
+
     const meetings = await response.json();
     onMeetingsChange(meetings);
   }
@@ -196,6 +208,7 @@ export function AddMeetingModal({
     const transcript = transcriptText.trim();
     const typeName = selectedMeetingType?.name ?? "Встреча";
     const typeSlug = selectedMeetingType?.slug ?? "meeting";
+    const hasClient = selectedMeetingType?.hasClient ?? true;
 
     try {
       const createResponse = await fetch("/api/meetings", {
@@ -209,6 +222,7 @@ export function AddMeetingModal({
           title: typeName,
           date,
           meetingType: typeSlug,
+          hasClient,
           transcriptText: transcript,
           summary: "AI-анализ встречи выполняется...",
           highlights: [],
@@ -264,9 +278,10 @@ export function AddMeetingModal({
             highlights: Array.isArray(result.highlights)
               ? result.highlights
               : [],
-            clientMood: result.clientMood ?? "neutral",
+            clientMood: hasClient ? result.clientMood ?? "neutral" : "neutral",
             teamMood: result.teamMood ?? "neutral",
             risk: result.risk ?? "low",
+            hasClient,
             analysisStatus: "analyzed",
             modelName: result.modelName ?? "AI",
             analyzedAt: new Date().toISOString(),
@@ -289,6 +304,7 @@ export function AddMeetingModal({
             clientMood: "neutral",
             teamMood: "neutral",
             risk: "medium",
+            hasClient,
             analysisStatus: "error",
             modelName: "",
             analyzedAt: null,
@@ -444,9 +460,26 @@ export function AddMeetingModal({
           </div>
         </div>
 
-        {selectedMeetingType?.description ? (
-          <div className="mt-4 rounded-3xl border border-gray-200 bg-[#f3f3f1] px-4 py-3 text-sm leading-6 text-gray-600">
-            {selectedMeetingType.description}
+        {selectedMeetingType ? (
+          <div className="mt-4 space-y-3">
+            {selectedMeetingType.description ? (
+              <div className="rounded-3xl border border-gray-200 bg-[#f3f3f1] px-4 py-3 text-sm leading-6 text-gray-600">
+                {selectedMeetingType.description}
+              </div>
+            ) : null}
+
+            <div
+              className={[
+                "rounded-3xl border px-4 py-3 text-sm leading-6",
+                selectedMeetingType.hasClient
+                  ? "border-gray-200 bg-[#f3f3f1] text-gray-600"
+                  : "border-orange-100 bg-orange-50 text-orange-800",
+              ].join(" ")}
+            >
+              {selectedMeetingType.hasClient
+                ? "На этой встрече есть клиент. Встреча будет влиять на динамику настроения клиента."
+                : "На этой встрече нет клиента. Встреча не будет влиять на динамику настроения клиента, но команда и риски будут анализироваться."}
+            </div>
           </div>
         ) : null}
 
