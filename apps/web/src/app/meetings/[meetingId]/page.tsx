@@ -1,12 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, CalendarDays, FileText } from "lucide-react";
+import {
+  ArrowLeft,
+  CalendarDays,
+  FileText,
+  Loader2,
+  RefreshCw,
+  Trash2,
+} from "lucide-react";
 
-import { UiSelect } from "@/components/ui-select";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { PageTitle } from "@/components/page-title";
+import { UiSelect } from "@/components/ui-select";
 import {
   formatMeetingDate,
   type Meeting,
@@ -48,10 +56,14 @@ function analysisStatusLabel(status: Meeting["analysisStatus"]) {
 
 export default function MeetingDetailsPage() {
   const params = useParams();
+  const router = useRouter();
   const meetingId = normalizeParam(params?.meetingId);
 
   const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isReanalyzing, setIsReanalyzing] = useState(false);
 
   async function loadMeeting() {
     setLoading(true);
@@ -78,14 +90,14 @@ export default function MeetingDetailsPage() {
   }, [meetingId]);
 
   async function patchMeeting(patch: Partial<Meeting>) {
-    if (!meeting) return;
+    if (!meeting) return null;
 
-    const optimisticMeeting = {
+    const previousMeeting = meeting;
+
+    setMeeting({
       ...meeting,
       ...patch,
-    };
-
-    setMeeting(optimisticMeeting);
+    });
 
     const response = await fetch(`/api/meetings/${meeting.id}`, {
       method: "PATCH",
@@ -96,12 +108,100 @@ export default function MeetingDetailsPage() {
     });
 
     if (!response.ok) {
-      setMeeting(meeting);
-      return;
+      setMeeting(previousMeeting);
+      return null;
     }
 
     const updatedMeeting = (await response.json()) as Meeting;
     setMeeting(updatedMeeting);
+
+    return updatedMeeting;
+  }
+
+  async function deleteMeeting() {
+    if (!meeting) return;
+
+    setIsDeleting(true);
+
+    try {
+      const response = await fetch(`/api/meetings/${meeting.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        alert("Не удалось удалить встречу");
+        return;
+      }
+
+      router.push(meeting.projectId ? `/projects/${meeting.projectId}` : "/meetings");
+      router.refresh();
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
+  async function rerunAnalysis() {
+    if (!meeting || !meeting.transcriptText?.trim()) {
+      alert("У этой встречи нет транскрибации для повторного анализа");
+      return;
+    }
+
+    setIsReanalyzing(true);
+
+    try {
+      await patchMeeting({
+        summary: "AI-анализ встречи выполняется...",
+        highlights: [],
+        analysisStatus: "pending",
+        modelName: "",
+        analyzedAt: null,
+      });
+
+      const analysisResponse = await fetch("/api/analyze-meeting", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          text: meeting.transcriptText,
+          meetingTypeId: meeting.meetingTypeId,
+        }),
+      });
+
+      if (!analysisResponse.ok) {
+        throw new Error("AI analysis failed");
+      }
+
+      const result = await analysisResponse.json();
+
+      await patchMeeting({
+        summary: result.summary ?? "Саммари не получено.",
+        highlights: Array.isArray(result.highlights) ? result.highlights : [],
+        clientMood:
+          meeting.hasClient === false
+            ? "neutral"
+            : result.clientMood ?? "neutral",
+        teamMood: result.teamMood ?? "neutral",
+        risk: result.risk ?? "low",
+        hasClient: result.hasClient ?? meeting.hasClient ?? true,
+        analysisStatus: "analyzed",
+        modelName: result.modelName ?? "AI",
+        analyzedAt: new Date().toISOString(),
+      });
+    } catch {
+      await patchMeeting({
+        summary:
+          "AI-анализ не удалось выполнить. Можно повторить анализ позже или обработать встречу вручную.",
+        highlights: [
+          "AI-анализ не завершился. Можно повторить позже или обработать встречу вручную.",
+        ],
+        analysisStatus: "error",
+        modelName: "",
+        analyzedAt: null,
+      });
+    } finally {
+      setIsReanalyzing(false);
+    }
   }
 
   if (loading) {
@@ -112,6 +212,7 @@ export default function MeetingDetailsPage() {
     return (
       <div className="rounded-3xl border border-gray-200 bg-white p-8">
         <PageTitle>Встреча не найдена</PageTitle>
+
         <Link
           href="/meetings"
           className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-black"
@@ -143,7 +244,8 @@ export default function MeetingDetailsPage() {
             <div className="text-sm text-gray-500">
               {meeting.project?.name ?? meeting.projectId}
             </div>
-              <PageTitle>{meeting.title}</PageTitle>
+
+            <PageTitle>{meeting.title}</PageTitle>
 
             <div className="mt-3 flex items-center gap-2 text-sm text-gray-500">
               <CalendarDays size={16} />
@@ -151,8 +253,36 @@ export default function MeetingDetailsPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600">
-            {analysisStatusLabel(meeting.analysisStatus)}
+          <div className="flex shrink-0 flex-col items-end gap-3">
+            <div className="rounded-2xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600">
+              {analysisStatusLabel(meeting.analysisStatus)}
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={rerunAnalysis}
+                disabled={isReanalyzing || !meeting.transcriptText?.trim()}
+                className="inline-flex items-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-300"
+              >
+                {isReanalyzing ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <RefreshCw size={16} />
+                )}
+                {isReanalyzing ? "Анализируем..." : "Перезапустить AI"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsDeleteOpen(true)}
+                disabled={isDeleting}
+                className="inline-flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:text-red-300"
+              >
+                <Trash2 size={16} />
+                Удалить
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -247,6 +377,7 @@ export default function MeetingDetailsPage() {
       <section className="rounded-3xl border border-gray-200 bg-white p-6">
         <div className="mb-4 flex items-center gap-2">
           <FileText size={18} className="text-gray-400" />
+
           <h2 className="font-heading text-lg font-semibold">
             Транскрибация
           </h2>
@@ -262,6 +393,22 @@ export default function MeetingDetailsPage() {
           </div>
         )}
       </section>
+
+      <ConfirmDialog
+        isOpen={isDeleteOpen}
+        title="Удалить встречу?"
+        description={
+          <>
+            Встреча «{meeting.title}» будет удалена из проекта. После удаления
+            состояние проекта пересчитается по последним оставшимся встречам.
+          </>
+        }
+        isLoading={isDeleting}
+        onClose={() => {
+          if (!isDeleting) setIsDeleteOpen(false);
+        }}
+        onConfirm={deleteMeeting}
+      />
     </div>
   );
 }

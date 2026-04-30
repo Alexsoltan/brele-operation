@@ -61,22 +61,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
   }
 
-  const nextHasClient =
-    typeof body?.hasClient === "boolean"
-      ? body.hasClient
-      : existingMeeting.hasClient;
-
-  const nextClientMood = isMood(body?.clientMood)
-    ? body.clientMood
-    : existingMeeting.clientMood;
-
-  const nextTeamMood = isMood(body?.teamMood)
-    ? body.teamMood
-    : existingMeeting.teamMood;
-
-  const nextRisk = isRisk(body?.risk) ? body.risk : existingMeeting.risk;
-
-    const meeting = await prisma.$transaction(async (tx: typeof prisma) => {
+  const meeting = await prisma.$transaction(async (tx: typeof prisma) => {
     const updatedMeeting = await tx.meeting.update({
       where: {
         id: context.params.meetingId,
@@ -115,24 +100,39 @@ export async function PATCH(
       },
     });
 
-    const shouldUpdateProjectState =
-      body?.analysisStatus === "analyzed" ||
-      isMood(body?.clientMood) ||
-      isMood(body?.teamMood) ||
-      isRisk(body?.risk);
+    const latestMeeting = await tx.meeting.findFirst({
+      where: {
+        projectId: existingMeeting.projectId,
+        workspaceId: user.workspaceId,
+        deletedAt: null,
+      },
+      orderBy: {
+        date: "desc",
+      },
+    });
 
-    if (shouldUpdateProjectState) {
-      await tx.project.update({
-        where: {
-          id: existingMeeting.projectId,
-        },
-        data: {
-          ...(nextHasClient ? { clientMood: nextClientMood } : {}),
-          teamMood: nextTeamMood,
-          risk: nextRisk,
-        },
-      });
-    }
+    const latestClientMeeting = await tx.meeting.findFirst({
+      where: {
+        projectId: existingMeeting.projectId,
+        workspaceId: user.workspaceId,
+        hasClient: true,
+        deletedAt: null,
+      },
+      orderBy: {
+        date: "desc",
+      },
+    });
+
+    await tx.project.update({
+      where: {
+        id: existingMeeting.projectId,
+      },
+      data: {
+        clientMood: latestClientMeeting?.clientMood ?? "neutral",
+        teamMood: latestMeeting?.teamMood ?? "neutral",
+        risk: latestMeeting?.risk ?? "low",
+      },
+    });
 
     return updatedMeeting;
   });
@@ -158,13 +158,51 @@ export async function DELETE(
     return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
   }
 
-  const meeting = await prisma.meeting.update({
-    where: {
-      id: context.params.meetingId,
-    },
-    data: {
-      deletedAt: new Date(),
-    },
+  const meeting = await prisma.$transaction(async (tx: typeof prisma) => {
+    const deletedMeeting = await tx.meeting.update({
+      where: {
+        id: context.params.meetingId,
+      },
+      data: {
+        deletedAt: new Date(),
+      },
+    });
+
+    const latestMeeting = await tx.meeting.findFirst({
+      where: {
+        projectId: existingMeeting.projectId,
+        workspaceId: user.workspaceId,
+        deletedAt: null,
+      },
+      orderBy: {
+        date: "desc",
+      },
+    });
+
+    const latestClientMeeting = await tx.meeting.findFirst({
+      where: {
+        projectId: existingMeeting.projectId,
+        workspaceId: user.workspaceId,
+        hasClient: true,
+        deletedAt: null,
+      },
+      orderBy: {
+        date: "desc",
+      },
+    });
+
+    await tx.project.update({
+      where: {
+        id: existingMeeting.projectId,
+      },
+      data: {
+        clientMood: latestClientMeeting?.clientMood ?? "neutral",
+        teamMood: latestMeeting?.teamMood ?? "neutral",
+        risk: latestMeeting?.risk ?? "low",
+      },
+    });
+
+    return deletedMeeting;
   });
 
   return NextResponse.json(meeting);
