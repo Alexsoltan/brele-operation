@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -14,11 +14,20 @@ import {
   getProjectHealthLabel,
   getProjectHealthTitle,
 } from "@/lib/project-health";
-import type { Meeting, Project } from "@/lib/types";
+import type { Meeting, Mood, Project, Risk } from "@/lib/types";
 
-function clamp(value: number) {
-  return Math.max(0, Math.min(100, Math.round(value)));
-}
+type ProjectHealthPoint = {
+  id: string;
+  date: string;
+  score: number;
+  delta: number;
+  impact: number;
+  meetingId?: string | null;
+  risk: Risk;
+  clientMood: Mood;
+  teamMood: Mood;
+  hasClient: boolean;
+};
 
 export function ProjectHealthOverview({
   project,
@@ -27,23 +36,76 @@ export function ProjectHealthOverview({
   project?: Project | null;
   meetings: Meeting[];
 }) {
+  const [healthPoints, setHealthPoints] = useState<ProjectHealthPoint[]>([]);
+  const [loadingHealthPoints, setLoadingHealthPoints] = useState(false);
+
   const calculated = useMemo(() => calculateProjectHealth(meetings), [meetings]);
 
- const chartData = useMemo(() => {
-  const sorted = [...meetings].sort((a, b) => a.date.localeCompare(b.date));
+  useEffect(() => {
+    if (!project?.id) {
+      setHealthPoints([]);
+      return;
+    }
 
-  if (sorted.length === 0) {
+    let isMounted = true;
+
+    async function loadHealthPoints() {
+      setLoadingHealthPoints(true);
+
+      try {
+        const response = await fetch(
+          `/api/projects/${project?.id}/health-points`,
+        );
+
+        if (!response.ok) {
+          if (isMounted) setHealthPoints([]);
+          return;
+        }
+
+        const data = (await response.json()) as ProjectHealthPoint[];
+
+        if (isMounted) {
+          setHealthPoints(data);
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingHealthPoints(false);
+        }
+      }
+    }
+
+    loadHealthPoints();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [project?.id]);
+    const chartData = useMemo(() => {
+    if (healthPoints.length > 0) {
+      return healthPoints.map((point) => ({
+        date: point.date,
+        value: point.score,
+      }));
+    }
+
     return [];
-  }
+  }, [healthPoints]);
 
-  return sorted.map((meeting, index) => ({
-    date: meeting.date,
-    value: index === sorted.length - 1 ? (project?.healthScore ?? calculated.score) : 100,
-  }));
-}, [calculated.score, meetings, project?.healthScore]);
+  const eventDates = useMemo(() => {
+    if (healthPoints.length > 0) {
+      return healthPoints.map((point) => point.date);
+    }
+
+    return meetings.map((meeting) => meeting.date);
+  }, [healthPoints, meetings]);
 
   const score = project?.healthScore ?? calculated.score;
-  const previousScore = calculated.previousScore ?? 100;
+
+  const previousScore =
+    healthPoints.length > 1
+      ? healthPoints[healthPoints.length - 2]?.score ?? calculated.previousScore
+      : calculated.previousScore ?? 100;
+
   const delta = score - previousScore;
   const label = getProjectHealthLabel(score);
   const title = getProjectHealthTitle(score);
@@ -67,7 +129,6 @@ export function ProjectHealthOverview({
             card: "border-green-100 bg-green-50 text-green-800",
             icon: "bg-green-100 text-green-700",
           };
-
   return (
     <section className="rounded-3xl border border-gray-200 bg-white p-5">
       <div className="mb-4">
@@ -128,7 +189,7 @@ export function ProjectHealthOverview({
               dotClassName: "fill-[#111827]",
             },
           ]}
-          eventDates={meetings.map((meeting) => meeting.date)}
+          eventDates={eventDates}
           initialValue={100}
           defaultPeriod="month"
           yLabels={{
@@ -138,6 +199,8 @@ export function ProjectHealthOverview({
           }}
         />
       </div>
+
+      {loadingHealthPoints ? null : null}
     </section>
   );
 }

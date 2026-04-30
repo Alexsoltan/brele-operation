@@ -99,15 +99,15 @@ model Project {
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
-  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
-  meetings    Meeting[]
+  workspace    Workspace?           @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  meetings     Meeting[]
+  healthPoints ProjectHealthPoint[]
 
   @@index([workspaceId])
   @@index([deletedAt])
   @@index([healthScore])
   @@index([healthLabel])
 }
-
 model MeetingType {
   id          String @id @default(cuid())
   workspaceId String?
@@ -189,4 +189,31 @@ model ProjectScoringConfig {
   @@index([workspaceId])
   @@index([group])
   @@index([sortOrder])
+}
+
+model ProjectHealthPoint {
+  id        String @id @default(cuid())
+  projectId String
+
+  date   DateTime
+  score  Int
+  delta  Int
+  impact Int
+
+  risk       Risk
+  clientMood Mood
+  teamMood   Mood
+  hasClient  Boolean @default(true)
+
+  meetingId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, date, meetingId])
+  @@index([projectId])
+  @@index([date])
+  @@index([score])
 }
