@@ -1,3 +1,7 @@
+import {
+  defaultProjectScoringWeights,
+  type ProjectScoringWeights,
+} from "@/lib/project-scoring-defaults";
 import type { Meeting, Mood, Risk } from "@/lib/types";
 
 export type ProjectHealthTrend = "up" | "down" | "flat";
@@ -54,24 +58,27 @@ export function getTrend(
   return "flat";
 }
 
-export function meetingImpact(meeting: ProjectHealthMeeting) {
+export function meetingImpact(
+  meeting: ProjectHealthMeeting,
+  weights: ProjectScoringWeights = defaultProjectScoringWeights,
+) {
   let impact = 0;
 
   if (meeting.analysisStatus === "error") impact -= 3;
 
-  if (meeting.risk === "high") impact -= 30;
-  if (meeting.risk === "medium") impact -= 5;
-  if (meeting.risk === "low") impact += 1;
+  if (meeting.risk === "high") impact += weights.risk_high;
+  if (meeting.risk === "medium") impact += weights.risk_medium;
+  if (meeting.risk === "low") impact += weights.risk_low;
 
   if (meeting.hasClient !== false) {
-    if (meeting.clientMood === "bad") impact -= 22;
-    if (meeting.clientMood === "neutral") impact += 0;
-    if (meeting.clientMood === "good") impact += 5;
+    if (meeting.clientMood === "bad") impact += weights.client_bad;
+    if (meeting.clientMood === "neutral") impact += weights.client_neutral;
+    if (meeting.clientMood === "good") impact += weights.client_good;
   }
 
-  if (meeting.teamMood === "bad") impact -= 15;
-  if (meeting.teamMood === "neutral") impact += 0;
-  if (meeting.teamMood === "good") impact += 4;
+  if (meeting.teamMood === "bad") impact += weights.team_bad;
+  if (meeting.teamMood === "neutral") impact += weights.team_neutral;
+  if (meeting.teamMood === "good") impact += weights.team_good;
 
   return impact;
 }
@@ -96,12 +103,13 @@ export function getRelevantMeetings<T extends { date: string | Date }>(
 
 export function calculateRawProjectHealthScore(
   meetings: ProjectHealthMeeting[],
+  weights: ProjectScoringWeights = defaultProjectScoringWeights,
 ) {
   const relevantMeetings = getRelevantMeetings(meetings);
   let score = 100;
 
   relevantMeetings.forEach((meeting) => {
-    score = clampHealthScore(score + meetingImpact(meeting));
+    score = clampHealthScore(score + meetingImpact(meeting, weights));
   });
 
   return score;
@@ -183,12 +191,16 @@ export function buildProjectHealthSummary(
 
 export function calculateProjectHealth(
   meetings: ProjectHealthMeeting[],
+  weights: ProjectScoringWeights = defaultProjectScoringWeights,
 ): ProjectHealthResult {
-  const relevantMeetings = getRelevantMeetings(meetings);
-  const score = calculateRawProjectHealthScore(relevantMeetings);
+  const relevantMeetings = getRelevantMeetings(
+    meetings.filter((meeting) => meeting.analysisStatus !== "pending"),
+  );
+
+  const score = calculateRawProjectHealthScore(relevantMeetings, weights);
   const previousScore =
     relevantMeetings.length > 1
-      ? calculateRawProjectHealthScore(relevantMeetings.slice(0, -1))
+      ? calculateRawProjectHealthScore(relevantMeetings.slice(0, -1), weights)
       : 100;
 
   const delta = score - previousScore;

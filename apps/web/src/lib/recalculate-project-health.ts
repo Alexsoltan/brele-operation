@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { calculateProjectHealth } from "@/lib/project-health";
-import type { Risk, Mood, MeetingAnalysisStatus } from "@/lib/types";
+import { getProjectScoringWeights } from "@/lib/project-scoring-config";
+import type { MeetingAnalysisStatus, Mood, Risk } from "@/lib/types";
 
-type MeetingForHealth = {
+type RecalculateMeeting = {
   date: Date;
   risk: Risk;
   clientMood: Mood;
@@ -16,11 +17,9 @@ export async function recalculateProjectHealth(
   projectId: string,
   workspaceId?: string | null,
 ) {
-  const project = await prisma.project.findFirst({
+  const project = await prisma.project.findUnique({
     where: {
       id: projectId,
-      deletedAt: null,
-      ...(workspaceId ? { workspaceId } : {}),
     },
     select: {
       id: true,
@@ -29,13 +28,14 @@ export async function recalculateProjectHealth(
   });
 
   if (!project) {
-    return null;
+    throw new Error(`Project not found: ${projectId}`);
   }
 
-  const meetings = (await prisma.meeting.findMany({
+  const resolvedWorkspaceId = workspaceId ?? project.workspaceId ?? null;
+
+  const meetings = await prisma.meeting.findMany({
     where: {
-      projectId: project.id,
-      workspaceId: project.workspaceId,
+      projectId,
       deletedAt: null,
     },
     orderBy: {
@@ -50,10 +50,11 @@ export async function recalculateProjectHealth(
       analysisStatus: true,
       highlights: true,
     },
-  })) as MeetingForHealth[];
+  });
+    const weights = await getProjectScoringWeights(resolvedWorkspaceId);
 
-  const health = calculateProjectHealth(
-    meetings.map((meeting) => ({
+  const result = calculateProjectHealth(
+    meetings.map((meeting: RecalculateMeeting) => ({
       date: meeting.date.toISOString(),
       risk: meeting.risk,
       clientMood: meeting.clientMood,
@@ -62,6 +63,7 @@ export async function recalculateProjectHealth(
       analysisStatus: meeting.analysisStatus,
       highlights: meeting.highlights,
     })),
+    weights,
   );
 
   return prisma.project.update({
@@ -69,10 +71,10 @@ export async function recalculateProjectHealth(
       id: project.id,
     },
     data: {
-      healthScore: health.score,
-      healthTrend: health.trend,
-      healthLabel: health.label,
-      healthSummary: health.summary,
+      healthScore: result.score,
+      healthTrend: result.trend,
+      healthLabel: result.label,
+      healthSummary: result.summary,
       healthCalculatedAt: new Date(),
     },
   });

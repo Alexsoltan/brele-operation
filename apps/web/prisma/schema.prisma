@@ -47,10 +47,11 @@ model Workspace {
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
 
-  users        User[]
-  projects     Project[]
-  meetings     Meeting[]
-  meetingTypes MeetingType[]
+  users                 User[]
+  projects              Project[]
+  meetings              Meeting[]
+  meetingTypes          MeetingType[]
+  projectScoringConfigs ProjectScoringConfig[]
 
   @@index([deletedAt])
 }
@@ -88,12 +89,11 @@ model Project {
   teamMood    Mood @default(neutral)
   risk        Risk @default(low)
 
-  // 🔥 НОВОЕ: здоровье проекта
-  healthScore         Int      @default(100)
-  healthTrend         String   @default("flat")
-  healthLabel         String   @default("stable")
-  healthSummary       String?
-  healthCalculatedAt  DateTime?
+  healthScore        Int      @default(100)
+  healthTrend        String   @default("flat")
+  healthLabel        String   @default("stable")
+  healthSummary      String?
+  healthCalculatedAt DateTime?
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -104,6 +104,8 @@ model Project {
 
   @@index([workspaceId])
   @@index([deletedAt])
+  @@index([healthScore])
+  @@index([healthLabel])
 }
 
 model MeetingType {
@@ -156,8 +158,8 @@ model Meeting {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
-  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workspace Workspace?   @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  project   Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   type      MeetingType? @relation(fields: [meetingTypeId], references: [id], onDelete: SetNull)
 
   @@index([workspaceId])
@@ -166,4 +168,25 @@ model Meeting {
   @@index([date])
   @@index([hasClient])
   @@index([deletedAt])
+}
+
+model ProjectScoringConfig {
+  id          String @id @default(cuid())
+  workspaceId String?
+
+  key       String
+  label     String
+  group     String
+  value     Float
+  sortOrder Int    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, key])
+  @@index([workspaceId])
+  @@index([group])
+  @@index([sortOrder])
 }

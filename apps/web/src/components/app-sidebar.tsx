@@ -16,7 +16,6 @@ const navItems = [
   { href: "/", label: "Дашборд", icon: BarChart3 },
   { href: "/projects", label: "Проекты", icon: BriefcaseBusiness },
   { href: "/meetings", label: "Встречи", icon: CalendarDays },
-  { href: "/meeting-types", label: "Типы встреч", icon: FileText },
   { href: "/import", label: "Импорт", icon: Inbox },
 ];
 
