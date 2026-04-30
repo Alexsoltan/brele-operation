@@ -13,25 +13,8 @@ type AnalysisResult = {
   teamMood: Mood;
   risk: Risk;
   highlights: string[];
+  modelName?: string;
 };
-
-const baseJsonRules = `
-Верни ТОЛЬКО валидный JSON без markdown и без пояснений.
-
-Формат ответа:
-{
-  "summary": "краткое саммари встречи на русском языке",
-  "clientMood": "good | neutral | bad",
-  "teamMood": "good | neutral | bad",
-  "risk": "low | medium | high",
-  "highlights": [
-    "ключевой инсайт 1 на русском языке",
-    "ключевой инсайт 2 на русском языке"
-  ]
-}
-
-Enum-значения clientMood/teamMood/risk должны быть только на английском.
-`;
 
 const fallbackPrompt = `
 Ты анализируешь TXT-транскрибацию клиентской встречи для операционной панели Brele.
@@ -84,75 +67,46 @@ export async function POST(req: NextRequest) {
         })
       : null;
 
-    const apiKey = process.env.OPENAI_API_KEY;
+    const aiProxyUrl = process.env.AI_PROXY_URL;
+    const aiProxyKey = process.env.AI_PROXY_KEY;
 
-    if (!apiKey) {
-      return NextResponse.json({
-        summary: "Нет API-ключа. Показан тестовый анализ.",
-        clientMood: "neutral",
-        teamMood: "neutral",
-        risk: "low",
-        highlights: ["Добавь OPENAI_API_KEY в apps/web/.env.local"],
-        modelName: "fallback",
-      });
+    if (!aiProxyUrl || !aiProxyKey) {
+      return NextResponse.json(
+        {
+          error: "AI proxy is not configured",
+          details: "Add AI_PROXY_URL and AI_PROXY_KEY to environment variables.",
+        },
+        { status: 500 },
+      );
     }
 
-    const systemPrompt = `
-${meetingType?.prompt?.trim() || fallbackPrompt}
-
-${baseJsonRules}
-`;
-
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch(`${aiProxyUrl}/analyze-meeting`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${aiProxyKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
-        temperature: 0.1,
-        response_format: { type: "json_object" },
-        messages: [
-          {
-            role: "system",
-            content: systemPrompt,
-          },
-          {
-            role: "user",
-            content: text.slice(0, 20000),
-          },
-        ],
+        text,
+        prompt: meetingType?.prompt?.trim() || fallbackPrompt,
       }),
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("OPENAI ERROR:", data);
+      console.error("AI PROXY ANALYZE ERROR:", data);
 
       return NextResponse.json(
         {
-          error: "OpenAI error",
+          error: "AI proxy error",
           details: data,
         },
         { status: 500 },
       );
     }
 
-    const content = data?.choices?.[0]?.message?.content;
-
-    if (!content || typeof content !== "string") {
-      return NextResponse.json(
-        {
-          error: "Empty response from AI",
-          details: data,
-        },
-        { status: 500 },
-      );
-    }
-
-    const parsed = JSON.parse(content) as Partial<AnalysisResult>;
+    const parsed = data as Partial<AnalysisResult>;
 
     return NextResponse.json({
       summary: parsed.summary || "Саммари не получено.",
@@ -160,7 +114,10 @@ ${baseJsonRules}
       teamMood: normalizeMood(parsed.teamMood),
       risk: normalizeRisk(parsed.risk),
       highlights: Array.isArray(parsed.highlights) ? parsed.highlights : [],
-      modelName: meetingType ? `gpt-4o-mini / ${meetingType.name}` : "gpt-4o-mini",
+      modelName:
+        meetingType && parsed.modelName
+          ? `${parsed.modelName} / ${meetingType.name}`
+          : parsed.modelName || "AI proxy",
     });
   } catch (error) {
     console.error("ANALYZE MEETING ERROR:", error);

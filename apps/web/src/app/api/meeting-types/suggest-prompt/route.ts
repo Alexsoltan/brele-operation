@@ -3,27 +3,8 @@ import { requireCanManageProjects } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
-export async function POST(req: NextRequest) {
-  try {
-    await requireCanManageProjects();
-
-    const body = await req.json();
-
-    const name = String(body?.name ?? "").trim();
-    const description = String(body?.description ?? "").trim();
-
-    if (!name) {
-      return NextResponse.json(
-        { error: "Название типа встречи обязательно" },
-        { status: 400 },
-      );
-    }
-
-    const apiKey = process.env.OPENAI_API_KEY;
-
-    if (!apiKey) {
-      return NextResponse.json({
-        prompt: `Ты анализируешь встречу типа «${name}».
+function fallbackPrompt(name: string, description: string) {
+  return `Ты анализируешь встречу типа «${name}».
 
 Контекст типа встречи:
 ${description || "Описание не указано."}
@@ -40,80 +21,66 @@ ${description || "Описание не указано."}
 - уверенность команды;
 - наличие понятных следующих шагов.
 
-Верни только валидный JSON без markdown.`,
+Верни только валидный JSON без markdown.`;
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    await requireCanManageProjects();
+
+    const body = await req.json();
+
+    const name = String(body?.name ?? "").trim();
+    const description = String(body?.description ?? "").trim();
+
+    if (!name) {
+      return NextResponse.json(
+        { error: "Название типа встречи обязательно" },
+        { status: 400 },
+      );
+    }
+
+    const aiProxyUrl = process.env.AI_PROXY_URL;
+    const aiProxyKey = process.env.AI_PROXY_KEY;
+
+    if (!aiProxyUrl || !aiProxyKey) {
+      return NextResponse.json({
+        prompt: fallbackPrompt(name, description),
       });
     }
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch(`${aiProxyUrl}/suggest-prompt`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${aiProxyKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
-        temperature: 0.4,
-        messages: [
-          {
-            role: "system",
-            content: `
-Ты помогаешь настроить AI-анализ клиентских встреч для B2B SaaS-системы Brele Operations.
-
-Нужно написать качественный system prompt на русском языке для анализа транскрибации встречи.
-
-Prompt должен:
-- учитывать тип встречи;
-- объяснять, на что AI должен обращать внимание;
-- помогать оценивать clientMood, teamMood и risk;
-- быть конкретным;
-- не содержать markdown;
-- быть готовым для использования как system prompt.
-`,
-          },
-          {
-            role: "user",
-            content: `
-Тип встречи: ${name}
-
-Описание типа встречи:
-${description || "Описание не указано."}
-
-Сгенерируй prompt для анализа встреч этого типа.
-`,
-          },
-        ],
+        name,
+        description,
       }),
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("SUGGEST PROMPT OPENAI ERROR:", data);
+      console.error("AI PROXY SUGGEST PROMPT ERROR:", data);
 
       return NextResponse.json({
-        prompt: `Ты анализируешь встречу типа «${name}».
-
-Контекст типа встречи:
-${description || "Описание не указано."}
-
-Оцени настроение клиента, состояние команды и риски проекта. Особое внимание уделяй признакам недовольства, потери доверия, неясных договорённостей, срыва сроков и отсутствия понятного плана действий.
-
-Верни только валидный JSON без markdown.`,
+        prompt: fallbackPrompt(name, description),
       });
     }
 
-    const content = data?.choices?.[0]?.message?.content;
+    const prompt = data?.prompt;
 
-    if (!content || typeof content !== "string") {
+    if (!prompt || typeof prompt !== "string") {
       return NextResponse.json({
-        prompt: `Ты анализируешь встречу типа «${name}».
-
-Оцени clientMood, teamMood и risk. Выдели ключевые инсайты и краткое саммари на русском языке. Верни только валидный JSON без markdown.`,
+        prompt: fallbackPrompt(name, description),
       });
     }
 
     return NextResponse.json({
-      prompt: content.trim(),
+      prompt: prompt.trim(),
     });
   } catch (error) {
     console.error("SUGGEST PROMPT ERROR:", error);
