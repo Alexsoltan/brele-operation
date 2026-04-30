@@ -13,7 +13,6 @@ import {
   calculateProjectHealth,
   getProjectHealthLabel,
   getProjectHealthTitle,
-  meetingImpact,
 } from "@/lib/project-health";
 import type { Meeting, Project } from "@/lib/types";
 
@@ -30,15 +29,18 @@ export function ProjectHealthOverview({
 }) {
   const calculated = useMemo(() => calculateProjectHealth(meetings), [meetings]);
 
-  const chartData = useMemo(() => {
-    const sorted = [...meetings].sort((a, b) => a.date.localeCompare(b.date));
-    let score = 100;
+ const chartData = useMemo(() => {
+  const sorted = [...meetings].sort((a, b) => a.date.localeCompare(b.date));
 
-    return sorted.map((meeting) => {
-      score = clamp(score + meetingImpact(meeting));
-      return { date: meeting.date, value: score };
-    });
-  }, [meetings]);
+  if (sorted.length === 0) {
+    return [];
+  }
+
+  return sorted.map((meeting, index) => ({
+    date: meeting.date,
+    value: index === sorted.length - 1 ? (project?.healthScore ?? calculated.score) : 100,
+  }));
+}, [calculated.score, meetings, project?.healthScore]);
 
   const score = project?.healthScore ?? calculated.score;
   const previousScore = calculated.previousScore ?? 100;
