@@ -21,6 +21,7 @@ type TrendZoneChartProps = {
   eventDates?: string[];
   initialValue?: number;
   defaultPeriod?: TrendChartPeriod;
+  compact?: boolean;
   yLabels?: {
     top: string;
     middle: string;
@@ -105,7 +106,7 @@ function buildSoftStepPath(points: Array<{ x: number; y: number }>) {
       continue;
     }
 
-    const curve = Math.min(28, (current.x - previous.x) * 0.48);
+    const curve = Math.min(22, (current.x - previous.x) * 0.45);
 
     path += ` L ${current.x - curve} ${previous.y}`;
     path += ` C ${current.x - curve / 2} ${previous.y}, ${
@@ -147,6 +148,7 @@ export function TrendZoneChart({
   eventDates = [],
   initialValue = 100,
   defaultPeriod = "month",
+  compact = true,
   yLabels = {
     top: "Хорошо",
     middle: "Средне",
@@ -162,8 +164,8 @@ export function TrendZoneChart({
 
     const startX = 92;
     const endX = 940;
-    const topY = 30;
-    const chartHeight = 220;
+    const topY = 20;
+    const chartHeight = compact ? 150 : 200;
 
     const eventKeys = new Set(
       eventDates
@@ -178,7 +180,6 @@ export function TrendZoneChart({
       item.points.forEach((point) => {
         const date = parseDate(point.date);
         if (!date) return;
-
         pointsByDay.set(keyFromDate(date), clamp(point.value));
       });
 
@@ -193,11 +194,10 @@ export function TrendZoneChart({
 
         const x = startX + (index * (endX - startX)) / total;
         const y = topY + ((100 - currentValue) / 100) * chartHeight;
-        const sameValueOffset = series.length > 1 ? seriesIndex * 5 - 2.5 : 0;
+        const sameValueOffset = series.length > 1 ? seriesIndex * 4 - 2 : 0;
 
         return {
           key,
-          date: day,
           x,
           y: y + sameValueOffset,
           value: currentValue,
@@ -208,12 +208,7 @@ export function TrendZoneChart({
       return {
         ...item,
         points,
-        path: buildSoftStepPath(
-          points.map((point) => ({
-            x: point.x,
-            y: point.y,
-          })),
-        ),
+        path: buildSoftStepPath(points.map((point) => ({ x: point.x, y: point.y }))),
       };
     });
 
@@ -230,7 +225,6 @@ export function TrendZoneChart({
 
         return {
           key,
-          date: day,
           x: startX + (index * (endX - startX)) / total,
           label: formatDate(day),
         };
@@ -245,11 +239,20 @@ export function TrendZoneChart({
       eventXs: eventPoints.map((point) => point.x),
       eventKeys: new Set(eventPoints.map((point) => point.key)),
     };
-  }, [eventDates, initialValue, period, series]);
+  }, [compact, eventDates, initialValue, period, series]);
+
+  const backgroundHeight = compact ? 180 : 230;
+  const viewBoxHeight = compact ? 238 : 300;
+  const svgHeightClass = compact ? "h-[250px]" : "h-[330px]";
+  const lineTop = compact ? 50 : 70;
+  const lineMiddle = compact ? 110 : 145;
+  const lineBottom = compact ? 170 : 220;
+  const eventLineBottom = compact ? 202 : 260;
+  const dateY = compact ? 226 : 286;
 
   return (
-    <div className="rounded-3xl border border-gray-100 bg-[#fbfbfa] p-5">
-      <div className="mb-2 flex justify-end">
+    <div className="rounded-3xl border border-gray-100 bg-[#fbfbfa] p-4">
+      <div className="mb-0 flex justify-end">
         <div className="flex rounded-2xl bg-[#f3f3f1] p-1">
           {periodOptions.map((option) => (
             <button
@@ -269,7 +272,7 @@ export function TrendZoneChart({
         </div>
       </div>
 
-      <svg viewBox="0 0 1000 320" className="h-[360px] w-full">
+      <svg viewBox={`0 0 1000 ${viewBoxHeight}`} className={`${svgHeightClass} w-full`}>
         <defs>
           <linearGradient id="trendZoneBackground" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0%" stopColor="#dcfce7" stopOpacity="0.9" />
@@ -283,26 +286,24 @@ export function TrendZoneChart({
 
         <rect
           x="84"
-          y="30"
+          y="20"
           width="872"
-          height="250"
+          height={backgroundHeight}
           rx="24"
           fill="url(#trendZoneBackground)"
         />
 
-        <line x1="84" y1="72" x2="956" y2="72" stroke="#e8eee8" />
-        <line x1="84" y1="155" x2="956" y2="155" stroke="#eee7d3" />
-        <line x1="84" y1="238" x2="956" y2="238" stroke="#eee2e2" />
+        <line x1="84" y1={lineTop} x2="956" y2={lineTop} stroke="#e8eee8" />
+        <line x1="84" y1={lineMiddle} x2="956" y2={lineMiddle} stroke="#eee7d3" />
+        <line x1="84" y1={lineBottom} x2="956" y2={lineBottom} stroke="#eee2e2" />
 
-        <text x="0" y="76" fontSize="12" fill="#9ca3af">
+        <text x="0" y={lineTop + 4} fontSize="12" fill="#9ca3af">
           {yLabels.top}
         </text>
-
-        <text x="0" y="159" fontSize="12" fill="#9ca3af">
+        <text x="0" y={lineMiddle + 4} fontSize="12" fill="#9ca3af">
           {yLabels.middle}
         </text>
-
-        <text x="0" y="242" fontSize="12" fill="#9ca3af">
+        <text x="0" y={lineBottom + 4} fontSize="12" fill="#9ca3af">
           {yLabels.bottom}
         </text>
 
@@ -310,9 +311,9 @@ export function TrendZoneChart({
           <line
             key={`line-${point.key}`}
             x1={point.x}
-            y1="40"
+            y1="30"
             x2={point.x}
-            y2="282"
+            y2={eventLineBottom}
             stroke="#e5e7eb"
             strokeWidth="1"
             strokeDasharray="3 6"
@@ -337,7 +338,7 @@ export function TrendZoneChart({
             <text
               key={key}
               x={x}
-              y="305"
+              y={dateY}
               textAnchor="middle"
               fontSize="10"
               fill="#9ca3af"
@@ -351,7 +352,7 @@ export function TrendZoneChart({
           <text
             key={`event-date-${point.key}`}
             x={point.x}
-            y="305"
+            y={dateY}
             textAnchor="middle"
             fontSize="10"
             fill="#111827"
