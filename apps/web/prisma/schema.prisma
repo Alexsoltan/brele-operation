@@ -88,6 +88,13 @@ model Project {
   teamMood    Mood @default(neutral)
   risk        Risk @default(low)
 
+  // 🔥 НОВОЕ: здоровье проекта
+  healthScore         Int      @default(100)
+  healthTrend         String   @default("flat")
+  healthLabel         String   @default("stable")
+  healthSummary       String?
+  healthCalculatedAt  DateTime?
+
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?

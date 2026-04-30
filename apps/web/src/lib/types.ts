@@ -3,6 +3,9 @@ export type Risk = "low" | "medium" | "high";
 export type ProjectStatus = "active" | "hold" | "archived";
 export type MeetingAnalysisStatus = "pending" | "analyzed" | "manual" | "error";
 
+export type ProjectHealthTrend = "up" | "down" | "flat";
+export type ProjectHealthLabel = "stable" | "attention" | "critical";
+
 export type Project = {
   id: string;
   slug?: string;
@@ -12,6 +15,11 @@ export type Project = {
   clientMood?: Mood;
   teamMood?: Mood;
   risk?: Risk;
+  healthScore?: number;
+  healthTrend?: ProjectHealthTrend;
+  healthLabel?: ProjectHealthLabel;
+  healthSummary?: string | null;
+  healthCalculatedAt?: string | null;
 };
 
 export type Meeting = {

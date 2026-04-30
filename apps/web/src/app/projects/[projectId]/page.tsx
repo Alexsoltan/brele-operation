@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { MoreHorizontal, Plus } from "lucide-react";
 
@@ -9,11 +9,64 @@ import { MeetingCard } from "@/components/meeting-card";
 import { MoodSpeedometer } from "@/components/mood-speedometer";
 import { MoodTrendChart } from "@/components/mood-trend-chart";
 import { PageTitle } from "@/components/page-title";
-import { ProjectSignals } from "@/components/project-signals";
-import type { Meeting, Mood, Project, Risk } from "@/lib/types";
 import { ProjectHealthOverview } from "@/components/project-health-overview";
+import type { Meeting, Mood, Project, Risk } from "@/lib/types";
+import { formatMeetingDate } from "@/lib/types";
 
 type Trend = "up" | "down" | "flat";
+
+type ProjectSignal = {
+  text: string;
+  type: "risk" | "warning" | "opportunity";
+  date: string;
+};
+
+function detectSignalType(text: string): ProjectSignal["type"] {
+  const lower = text.toLowerCase();
+
+  if (
+    lower.includes("недоволь") ||
+    lower.includes("проблем") ||
+    lower.includes("риск") ||
+    lower.includes("демотив")
+  ) {
+    return "risk";
+  }
+
+  if (
+    lower.includes("вопрос") ||
+    lower.includes("сомнен") ||
+    lower.includes("обсужд")
+  ) {
+    return "warning";
+  }
+
+  return "opportunity";
+}
+
+function extractProjectSignals(
+  meetings: Meeting[],
+  limit = 5,
+): ProjectSignal[] {
+  const signals: ProjectSignal[] = [];
+
+  meetings.slice(0, 10).forEach((meeting) => {
+    meeting.highlights.forEach((highlight) => {
+      signals.push({
+        text: highlight,
+        type: detectSignalType(highlight),
+        date: meeting.date,
+      });
+    });
+  });
+
+  return signals
+    .sort((a, b) => {
+      const priority = { risk: 3, warning: 2, opportunity: 1 };
+      return priority[b.type] - priority[a.type];
+    })
+    .slice(0, limit);
+}
 
 function normalizeParam(value: string | string[] | undefined) {
   if (Array.isArray(value)) return value[0] ?? "";
@@ -36,6 +89,22 @@ function getTrend(current: number, previous: number): Trend {
   if (current > previous) return "up";
   if (current < previous) return "down";
   return "flat";
+}
+
+function latestClientMood(project: Project, meetings: Meeting[]) {
+  const latestClientMeeting = meetings.find(
+    (meeting) => meeting.hasClient !== false,
+  );
+
+  return latestClientMeeting?.clientMood ?? project.clientMood ?? "neutral";
+}
+
+function latestTeamMood(project: Project, meetings: Meeting[]) {
+  return meetings[0]?.teamMood ?? project.teamMood ?? "neutral";
+}
+
+function latestRisk(project: Project, meetings: Meeting[]) {
+  return meetings[0]?.risk ?? project.risk ?? "low";
 }
 
 export default function ProjectPage() {
@@ -78,20 +147,25 @@ export default function ProjectPage() {
     }
   }, [projectId]);
 
-  const latestMeeting = meetings[0];
+  const currentClientMood: Mood = project
+    ? latestClientMood(project, meetings)
+    : "neutral";
+
+  const currentTeamMood: Mood = project
+    ? latestTeamMood(project, meetings)
+    : "neutral";
+
+  const currentRisk: Risk = project ? latestRisk(project, meetings) : "low";
+
+  const previousClientMeeting = meetings.filter(
+    (meeting) => meeting.hasClient !== false,
+  )[1];
+
   const previousMeeting = meetings[1];
-
-  const currentClientMood: Mood =
-    latestMeeting?.clientMood ?? project?.clientMood ?? "neutral";
-
-  const currentTeamMood: Mood =
-    latestMeeting?.teamMood ?? project?.teamMood ?? "neutral";
-
-  const currentRisk: Risk = latestMeeting?.risk ?? project?.risk ?? "low";
 
   const clientTrend = getTrend(
     moodScore(currentClientMood),
-    moodScore(previousMeeting?.clientMood ?? "neutral"),
+    moodScore(previousClientMeeting?.clientMood ?? "neutral"),
   );
 
   const teamTrend = getTrend(
@@ -103,6 +177,10 @@ export default function ProjectPage() {
     riskScore(currentRisk),
     riskScore(previousMeeting?.risk ?? "medium"),
   );
+
+  const signals = useMemo(() => {
+    return extractProjectSignals(meetings);
+  }, [meetings]);
 
   if (loading) {
     return (
@@ -126,9 +204,7 @@ export default function ProjectPage() {
     <div className="space-y-8">
       <header className="flex items-start justify-between gap-6">
         <div>
-          <div className="mt-3">
-            <PageTitle>{project.name}</PageTitle>
-          </div>
+          <PageTitle>{project.name}</PageTitle>
 
           <p className="mt-1 text-sm text-gray-500">
             {project.client ?? "Клиент не указан"}
@@ -167,26 +243,27 @@ export default function ProjectPage() {
         />
       </section>
 
-    <ProjectHealthOverview meetings={meetings} />
-     <MoodTrendChart meetings={meetings} />
+      <ProjectHealthOverview project={project} meetings={meetings} />
 
-      <div className="grid grid-cols-[1.4fr_0.75fr] items-start gap-5">
+      <MoodTrendChart meetings={meetings} />
+
+      <div className="grid grid-cols-[1.4fr_0.75fr] gap-5">
         <section className="rounded-3xl border border-gray-200 bg-white p-6">
           <div className="mb-5 flex items-start justify-between gap-4">
             <div>
               <h2 className="font-heading text-xl font-semibold tracking-[-0.03em]">
-                Встречи проекта
+                Встречи
               </h2>
 
               <p className="mt-1 text-sm text-gray-500">
-                Последние клиентские встречи и AI-оценка состояния
+                Последние встречи проекта
               </p>
             </div>
 
             <button
               type="button"
               onClick={() => setIsAddMeetingOpen(true)}
-              className="inline-flex items-center gap-2 rounded-2xl bg-black px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800"
+              className="inline-flex shrink-0 items-center gap-2 rounded-2xl bg-black px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800"
             >
               <Plus size={16} />
               Добавить встречу
@@ -210,7 +287,50 @@ export default function ProjectPage() {
           )}
         </section>
 
-        <ProjectSignals meetings={meetings} />
+        
+{/* SIGNALS */}
+<aside className="rounded-3xl border border-gray-200 bg-white p-6">
+  <h2 className="text-xl font-semibold">Сигналы</h2>
+
+  <div className="mt-5 space-y-3">
+    {signals.length === 0 ? (
+      <div className="text-sm text-gray-500">
+        Нет значимых сигналов
+      </div>
+    ) : (
+      signals.map((signal, index) => {
+        const tone =
+          signal.type === "risk"
+            ? "border-red-100 bg-red-50 text-red-700"
+            : signal.type === "warning"
+              ? "border-amber-100 bg-amber-50 text-amber-700"
+              : "border-green-100 bg-green-50 text-green-700";
+
+        const meeting = meetings.find((item) =>
+          item.highlights.includes(signal.text),
+        );
+
+        return (
+          <div
+            key={`${signal.date}-${index}`}
+            className={`rounded-3xl border p-4 ${tone}`}
+          >
+            <div className="mb-2 flex items-center gap-2 text-xs font-medium opacity-70">
+              <span>{formatMeetingDate(signal.date)}</span>
+              <span>·</span>
+              <span>{meeting?.title ?? "Встреча"}</span>
+            </div>
+
+            <p className="text-sm font-semibold leading-6">
+              {signal.text}
+            </p>
+          </div>
+        );
+      })
+    )}
+  </div>
+</aside>
+
       </div>
 
       <AddMeetingModal
@@ -218,12 +338,7 @@ export default function ProjectPage() {
         onClose={() => setIsAddMeetingOpen(false)}
         initialProjectId={project.id}
         projects={[project]}
-        onMeetingsChange={async () => {
-          const response = await fetch(`/api/meetings?projectId=${project.id}`);
-          const data = (await response.json()) as Meeting[];
-
-          setMeetings(data.sort((a, b) => b.date.localeCompare(a.date)));
-        }}
+        onMeetingsChange={loadProjectPage}
       />
     </div>
   );

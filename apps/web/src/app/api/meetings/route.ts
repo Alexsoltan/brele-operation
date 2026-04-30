@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireCanManageMeetings, requireCanRead } from "@/lib/auth";
+import { recalculateProjectHealth } from "@/lib/recalculate-project-health";
 
 export async function GET(req: NextRequest) {
   const user = await requireCanRead();
@@ -58,10 +59,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
-  let hasClient = body?.hasClient !== false;
+  let selectedMeetingType: Awaited<
+    ReturnType<typeof prisma.meetingType.findFirst>
+  > = null;
 
   if (meetingTypeId) {
-    const type = await prisma.meetingType.findFirst({
+    selectedMeetingType = await prisma.meetingType.findFirst({
       where: {
         id: meetingTypeId,
         workspaceId: user.workspaceId,
@@ -69,14 +72,12 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    if (!type) {
+    if (!selectedMeetingType) {
       return NextResponse.json(
         { error: "Meeting type not found" },
         { status: 404 },
       );
     }
-
-    hasClient = type.hasClient;
   }
 
   const meeting = await prisma.meeting.create({
@@ -87,7 +88,10 @@ export async function POST(req: NextRequest) {
       title,
       date: body?.date ? new Date(body.date) : new Date(),
       meetingType,
-      hasClient,
+      hasClient:
+        typeof body?.hasClient === "boolean"
+          ? body.hasClient
+          : selectedMeetingType?.hasClient ?? true,
       transcriptText,
       summary: body?.summary ?? "AI-анализ встречи выполняется...",
       highlights: Array.isArray(body?.highlights) ? body.highlights : [],
@@ -103,6 +107,8 @@ export async function POST(req: NextRequest) {
       type: true,
     },
   });
+
+  await recalculateProjectHealth(projectId, user.workspaceId);
 
   return NextResponse.json(meeting, { status: 201 });
 }
