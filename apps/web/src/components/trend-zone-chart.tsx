@@ -29,7 +29,11 @@ type TrendZoneChartProps = {
   };
 };
 
-const periodOptions: Array<{ value: TrendChartPeriod; label: string; days?: number }> = [
+const periodOptions: Array<{
+  value: TrendChartPeriod;
+  label: string;
+  days?: number;
+}> = [
   { value: "month", label: "Месяц", days: 30 },
   { value: "quarter", label: "Квартал", days: 90 },
   { value: "halfyear", label: "Полгода", days: 183 },
@@ -48,9 +52,10 @@ function parseDate(value: string) {
 }
 
 function keyFromDate(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
-    date.getDate(),
-  ).padStart(2, "0")}`;
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+    2,
+    "0",
+  )}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 function buildDays(start: Date, end: Date) {
@@ -90,7 +95,6 @@ function getPeriodRange(period: TrendChartPeriod, series: TrendChartSeries[]) {
 
   return { start: firstPoint, end };
 }
-
 function buildSoftStepPath(points: Array<{ x: number; y: number }>) {
   if (points.length === 0) return "";
   if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
@@ -177,13 +181,44 @@ export function TrendZoneChart({
     const renderedSeries = series.map((item, seriesIndex) => {
       const pointsByDay = new Map<string, number>();
 
-      item.points.forEach((point) => {
-        const date = parseDate(point.date);
-        if (!date) return;
-        pointsByDay.set(keyFromDate(date), clamp(point.value));
+      const parsedPoints = item.points
+        .map((point) => {
+          const date = parseDate(point.date);
+          if (!date) return null;
+
+          return {
+            date,
+            key: keyFromDate(date),
+            value: clamp(point.value),
+          };
+        })
+        .filter(
+          (
+            point,
+          ): point is {
+            date: Date;
+            key: string;
+            value: number;
+          } => Boolean(point),
+        )
+        .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+      parsedPoints.forEach((point) => {
+        pointsByDay.set(point.key, point.value);
       });
 
-      let currentValue = clamp(item.points[0]?.value ?? initialValue);
+      let currentValue = clamp(initialValue);
+
+      for (let index = 0; index < parsedPoints.length; index += 1) {
+        const point = parsedPoints[index];
+
+        if (point.date < start) {
+          currentValue = point.value;
+          continue;
+        }
+
+        break;
+      }
 
       const points = days.map((day, index) => {
         const key = keyFromDate(day);
@@ -208,11 +243,15 @@ export function TrendZoneChart({
       return {
         ...item,
         points,
-        path: buildSoftStepPath(points.map((point) => ({ x: point.x, y: point.y }))),
+        path: buildSoftStepPath(
+          points.map((point) => ({
+            x: point.x,
+            y: point.y,
+          })),
+        ),
       };
     });
-
-    const eventPoints = days
+        const eventPoints = days
       .map((day, index) => {
         const key = keyFromDate(day);
         const hasEvent =
