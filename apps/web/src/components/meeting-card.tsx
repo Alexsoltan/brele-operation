@@ -74,19 +74,6 @@ export function MeetingCard({
       <p className="mt-4 line-clamp-2 text-sm leading-6 text-gray-600">
         {meeting.summary}
       </p>
-
-      {!isPending && meeting.highlights.length > 0 ? (
-        <div className="mt-4 flex flex-wrap gap-2">
-          {meeting.highlights.slice(0, 3).map((highlight, index) => (
-            <span
-              key={`${meeting.id}-${index}`}
-              className="rounded-full bg-[#f3f3f1] px-3 py-1 text-xs text-gray-500"
-            >
-              {highlight}
-            </span>
-          ))}
-        </div>
-      ) : null}
     </Link>
   );
 }

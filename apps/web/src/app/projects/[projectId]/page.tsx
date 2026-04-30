@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { MoreHorizontal, Plus, TrendingDown } from "lucide-react";
+import { MoreHorizontal, Plus } from "lucide-react";
 
 import { AddMeetingModal } from "@/components/add-meeting-modal";
 import { MeetingCard } from "@/components/meeting-card";
 import { MoodSpeedometer } from "@/components/mood-speedometer";
 import { MoodTrendChart } from "@/components/mood-trend-chart";
 import { PageTitle } from "@/components/page-title";
+import { ProjectSignals } from "@/components/project-signals";
 import type { Meeting, Mood, Project, Risk } from "@/lib/types";
 
 type Trend = "up" | "down" | "flat";
@@ -16,12 +17,6 @@ type Trend = "up" | "down" | "flat";
 function normalizeParam(value: string | string[] | undefined) {
   if (Array.isArray(value)) return value[0] ?? "";
   return value ?? "";
-}
-
-function statusLabel(status: Project["status"]) {
-  if (status === "hold") return "На холде";
-  if (status === "archived") return "В архиве";
-  return "Активный";
 }
 
 function moodScore(value: Mood) {
@@ -107,12 +102,6 @@ export default function ProjectPage() {
     riskScore(currentRisk),
     riskScore(previousMeeting?.risk ?? "medium"),
   );
-
-  const hasBadSignal = useMemo(() => {
-    return meetings.some(
-      (meeting) => meeting.clientMood === "bad" || meeting.risk === "high",
-    );
-  }, [meetings]);
 
   if (loading) {
     return (
@@ -219,36 +208,7 @@ export default function ProjectPage() {
           )}
         </section>
 
-        <aside className="rounded-3xl border border-gray-200 bg-white p-6">
-          <h2 className="font-heading text-xl font-semibold tracking-[-0.03em]">
-            Сигналы
-          </h2>
-
-          <div className="mt-5">
-            {hasBadSignal ? (
-              <div className="rounded-3xl bg-red-50 p-5 text-red-700">
-                <div className="flex items-center gap-2 text-sm font-semibold">
-                  <TrendingDown size={16} />
-                  Есть просадка
-                </div>
-
-                <p className="mt-2 text-sm leading-6">
-                  Обнаружены негативные встречи или высокий риск
-                </p>
-              </div>
-            ) : (
-              <div className="rounded-3xl bg-green-50 p-5 text-green-700">
-                <div className="text-sm font-semibold">
-                  Всё стабильно
-                </div>
-
-                <p className="mt-2 text-sm leading-6">
-                  Критичных сигналов нет
-                </p>
-              </div>
-            )}
-          </div>
-        </aside>
+        <ProjectSignals meetings={meetings} />
       </div>
 
       <AddMeetingModal
