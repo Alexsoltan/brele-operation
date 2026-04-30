@@ -18,6 +18,17 @@ type RecalculateMeeting = {
   highlights: string[];
 };
 
+type NormalizedRecalculateMeeting = {
+  id: string;
+  date: string;
+  risk: Risk;
+  clientMood: Mood;
+  teamMood: Mood;
+  hasClient: boolean;
+  analysisStatus: MeetingAnalysisStatus;
+  highlights: string[];
+};
+
 export async function recalculateProjectHealth(
   projectId: string,
   workspaceId?: string | null,
@@ -59,19 +70,20 @@ export async function recalculateProjectHealth(
   });
 
   const weights = await getProjectScoringWeights(resolvedWorkspaceId);
-  const normalizedMeetings: Array<{
-  id: string;
-  date: string;
-  risk: Risk;
-  clientMood: Mood;
-  teamMood: Mood;
-  hasClient: boolean;
-  analysisStatus: MeetingAnalysisStatus;
-  highlights: string[];
-}> = meetings.map((meeting: RecalculateMeeting) => ({
-  }));
 
-  const result = calculateProjectHealth(normalizedMeetings, weights);
+  const normalizedMeetings: NormalizedRecalculateMeeting[] = meetings.map(
+    (meeting: RecalculateMeeting) => ({
+      id: meeting.id,
+      date: meeting.date.toISOString(),
+      risk: meeting.risk,
+      clientMood: meeting.clientMood,
+      teamMood: meeting.teamMood,
+      hasClient: meeting.hasClient,
+      analysisStatus: meeting.analysisStatus,
+      highlights: meeting.highlights,
+    }),
+  );
+    const result = calculateProjectHealth(normalizedMeetings, weights);
 
   let currentScore = 100;
 
