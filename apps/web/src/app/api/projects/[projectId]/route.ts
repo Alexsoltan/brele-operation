@@ -1,6 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireCanManageProjects, requireCanRead } from "@/lib/auth";
+import type { ProjectStatus, Mood, Risk } from "@/lib/types";
+
+const projectStatuses: ProjectStatus[] = ["active", "hold", "archived"];
+const moods: Mood[] = ["good", "neutral", "bad"];
+const risks: Risk[] = ["low", "medium", "high"];
+
+function isProjectStatus(value: unknown): value is ProjectStatus {
+  return typeof value === "string" && projectStatuses.includes(value as ProjectStatus);
+}
+
+function isMood(value: unknown): value is Mood {
+  return typeof value === "string" && moods.includes(value as Mood);
+}
+
+function isRisk(value: unknown): value is Risk {
+  return typeof value === "string" && risks.includes(value as Risk);
+}
 
 export async function GET(
   _req: NextRequest,
@@ -49,12 +66,12 @@ export async function PATCH(
       id: projectId,
     },
     data: {
-      name: typeof body?.name === "string" ? body.name : undefined,
-      client: typeof body?.client === "string" ? body.client : undefined,
-      status: body?.status,
-      clientMood: body?.clientMood,
-      teamMood: body?.teamMood,
-      risk: body?.risk,
+      name: typeof body?.name === "string" ? body.name.trim() : undefined,
+      client: typeof body?.client === "string" ? body.client.trim() : undefined,
+      status: isProjectStatus(body?.status) ? body.status : undefined,
+      clientMood: isMood(body?.clientMood) ? body.clientMood : undefined,
+      teamMood: isMood(body?.teamMood) ? body.teamMood : undefined,
+      risk: isRisk(body?.risk) ? body.risk : undefined,
     },
   });
 

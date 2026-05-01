@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-
 import { prisma } from "@/lib/prisma";
 
 type TelegramMessageFrom = {
@@ -38,26 +37,35 @@ export async function POST(req: NextRequest) {
     const body = (await req.json()) as TelegramWebhookBody;
     const message = body.message;
 
+    // ❌ если нет базовых данных — игнор
     if (!message?.chat?.id || !message.message_id || !message.date) {
       return NextResponse.json({ ok: true });
     }
 
+    // ❌ если нет текста
     if (!message.text?.trim()) {
       return NextResponse.json({ ok: true });
     }
 
+    // ❌ игнорим ботов
     if (message.from?.is_bot) {
       return NextResponse.json({ ok: true });
     }
 
     const telegramChatId = String(message.chat.id);
-        const telegramMessageId = String(message.message_id);
-    const authorTelegramId = message.from?.id ? String(message.from.id) : null;
+    const telegramMessageId = String(message.message_id);
+
+    const authorTelegramId = message.from?.id
+      ? String(message.from.id)
+      : null;
+
     const authorUsername = message.from?.username ?? null;
     const authorName = buildAuthorName(message.from);
+
     const text = message.text.trim();
     const date = new Date(message.date * 1000);
 
+    // 🔍 ищем привязанный чат проекта
     const projectChat = await prisma.projectChat.findFirst({
       where: {
         telegramChatId,
@@ -68,10 +76,13 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // ❌ если чат не подключён — просто игнор
     if (!projectChat) {
+      console.log("Unlinked telegram chat:", telegramChatId);
       return NextResponse.json({ ok: true });
     }
 
+    // 👤 создаём / обновляем участника
     if (authorTelegramId) {
       await prisma.projectChatParticipant.upsert({
         where: {
@@ -94,6 +105,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // 💬 сохраняем сообщение
     await prisma.chatMessage.upsert({
       where: {
         projectChatId_telegramMessageId: {

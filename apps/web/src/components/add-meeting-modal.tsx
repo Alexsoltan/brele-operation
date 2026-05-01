@@ -460,29 +460,6 @@ export function AddMeetingModal({
           </div>
         </div>
 
-        {selectedMeetingType ? (
-          <div className="mt-4 space-y-3">
-            {selectedMeetingType.description ? (
-              <div className="rounded-3xl border border-gray-200 bg-[#f3f3f1] px-4 py-3 text-sm leading-6 text-gray-600">
-                {selectedMeetingType.description}
-              </div>
-            ) : null}
-
-            <div
-              className={[
-                "rounded-3xl border px-4 py-3 text-sm leading-6",
-                selectedMeetingType.hasClient
-                  ? "border-gray-200 bg-[#f3f3f1] text-gray-600"
-                  : "border-orange-100 bg-orange-50 text-orange-800",
-              ].join(" ")}
-            >
-              {selectedMeetingType.hasClient
-                ? "На этой встрече есть клиент. Встреча будет влиять на динамику настроения клиента."
-                : "На этой встрече нет клиента. Встреча не будет влиять на динамику настроения клиента, но команда и риски будут анализироваться."}
-            </div>
-          </div>
-        ) : null}
-
         <label
           onDragOver={(event) => {
             event.preventDefault();
