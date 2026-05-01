@@ -5,6 +5,11 @@ const SESSION_COOKIE = "brele_session_v2";
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // 🔥 РАЗРЕШАЕМ TELEGRAM WEBHOOK БЕЗ АВТОРИЗАЦИИ
+  if (pathname === "/api/telegram/webhook") {
+    return NextResponse.next();
+  }
+
   const isLoginPage = pathname === "/login";
 
   const isAuthApi =
