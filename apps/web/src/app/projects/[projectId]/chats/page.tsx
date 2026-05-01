@@ -55,15 +55,27 @@ export default function ProjectChatsPage() {
 
   const [summaries, setSummaries] = useState<ChatSummary[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
+  type Chat = {
+  id: string;
+  title: string | null;
+  telegramChatId: string;
+  };
+
+  const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
 
   async function load() {
     setLoading(true);
 
-    const [summariesResponse, participantsResponse] = await Promise.all([
+    const [summariesResponse, participantsResponse, chatsResponse] = await Promise.all([
       fetch(`/api/projects/${projectId}/chats`),
       fetch(`/api/projects/${projectId}/chat-participants`),
+      fetch(`/api/projects/${projectId}/telegram-chats`),
     ]);
+
+    if (chatsResponse.ok) {
+      setChats(await chatsResponse.json());
+    }
 
     if (summariesResponse.ok) {
       setSummaries(await summariesResponse.json());
@@ -157,56 +169,59 @@ export default function ProjectChatsPage() {
               </div>
             </div>
           ) : (
-            <div className="rounded-3xl border border-gray-100 bg-[#fbfbfa] p-5">
-              <div className="mb-3 text-xs font-medium text-gray-400">
-                {formatMeetingDate(latestSummary.date)}
-              </div>
 
-              <p className="text-sm leading-7 text-gray-700">
-                {latestSummary.summary}
-              </p>
+            
+          <div className="rounded-3xl border border-gray-100 bg-[#fbfbfa] p-4">
 
-              <div className="mt-5 grid grid-cols-3 gap-3">
-                <div className="rounded-2xl bg-white p-4">
-                  <div className="text-xs text-gray-400">Клиент</div>
-                  <div className="mt-1 text-sm font-semibold text-gray-950">
-                    {moodLabel(latestSummary.clientMood)}
-                  </div>
-                </div>
+  <div className="mb-2 flex items-center justify-between gap-3">
 
-                <div className="rounded-2xl bg-white p-4">
-                  <div className="text-xs text-gray-400">Команда</div>
-                  <div className="mt-1 text-sm font-semibold text-gray-950">
-                    {moodLabel(latestSummary.teamMood)}
-                  </div>
-                </div>
+    <div className="text-xs font-medium text-gray-400">
 
-                <div className="rounded-2xl bg-white p-4">
-                  <div className="text-xs text-gray-400">Риск</div>
-                  <div className="mt-1 text-sm font-semibold text-gray-950">
-                    {riskLabel(latestSummary.risk)}
-                  </div>
-                </div>
-              </div>
-                            {latestSummary.highlights.length > 0 ? (
-                <div className="mt-5">
-                  <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                    Важное за день
-                  </div>
+      {formatMeetingDate(latestSummary.date)}
 
-                  <div className="space-y-2">
-                    {latestSummary.highlights.map((highlight, index) => (
-                      <div
-                        key={`${highlight}-${index}`}
-                        className="rounded-2xl bg-white px-4 py-3 text-sm leading-6 text-gray-700"
-                      >
-                        {highlight}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </div>
+    </div>
+
+    <div className="flex items-center gap-2">
+
+      <div className="rounded-full border px-2 py-1 text-[11px] font-medium text-gray-600 bg-white">
+
+        Клиент: {moodLabel(latestSummary.clientMood)}
+
+      </div>
+
+      <div
+
+        className={[
+
+          "rounded-full border px-2 py-1 text-[11px] font-semibold",
+
+          riskClassName(latestSummary.risk),
+
+        ].join(" ")}
+
+      >
+
+        Риск: {riskLabel(latestSummary.risk)}
+
+      </div>
+
+      <div className="rounded-full border px-2 py-1 text-[11px] font-medium text-gray-600 bg-white">
+
+        Команда: {moodLabel(latestSummary.teamMood)}
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <p className="text-sm leading-6 text-gray-600 line-clamp-3">
+
+    {latestSummary.summary}
+
+  </p>
+
+</div>
           )}
         </section>
 
@@ -251,81 +266,126 @@ export default function ProjectChatsPage() {
         </section>
       </main>
 
-      <aside className="h-fit rounded-[32px] border border-gray-200 bg-white p-5">
-        <div className="flex items-start gap-3">
-          <div className="rounded-2xl bg-black p-2 text-white">
-            <AlertTriangle size={17} />
-          </div>
 
-          <div>
-            <h2 className="text-sm font-semibold text-gray-950">
-              Участники чатов
-            </h2>
-            <p className="mt-1 text-xs leading-5 text-gray-500">
-              Отметь, кто клиент, кто команда, а кого нужно игнорировать при
-              анализе.
-            </p>
-          </div>
+<aside className="space-y-4">
+
+  {/* === ЧАТЫ ПРОЕКТА === */}
+  <div className="rounded-[28px] border border-gray-200 bg-white p-5">
+    <div className="flex items-start gap-3">
+      <div className="rounded-2xl bg-black p-2 text-white">
+        <MessageCircle size={16} />
+      </div>
+
+      <div>
+        <div className="text-sm font-semibold text-gray-950">
+          Чаты проекта
         </div>
+        <div className="text-xs text-gray-500">
+          Подключённые Telegram-чаты
+        </div>
+      </div>
+    </div>
 
-        <div className="mt-5 space-y-3">
-          {participants.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-gray-200 p-4 text-sm text-gray-500">
-              Участники появятся после первых сообщений.
+    <div className="mt-4 space-y-2">
+      {chats.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-gray-200 p-4 text-sm text-gray-500">
+          Чаты не подключены
+        </div>
+      ) : (
+        chats.map((chat) => (
+          <div
+            key={chat.id}
+            className="rounded-2xl border border-gray-100 bg-[#fbfbfa] px-4 py-3"
+          >
+            <div className="text-sm font-medium text-gray-950">
+              {chat.title || "Без названия"}
             </div>
-          ) : (
-            participants.map((participant) => {
-              const name =
-                participant.name ||
-                (participant.username ? `@${participant.username}` : "Без имени");
+          </div>
+        ))
+      )}
+    </div>
+  </div>
 
-              return (
-                <div
-                  key={participant.id}
-                  className="rounded-3xl border border-gray-100 bg-[#fbfbfa] p-3"
-                >
-                  <div className="min-w-0 text-sm font-medium text-gray-950">
-                    <div className="truncate">{name}</div>
-                    {participant.username ? (
-                      <div className="truncate text-xs font-normal text-gray-400">
-                        @{participant.username}
-                      </div>
-                    ) : null}
-                  </div>
+  {/* === УЧАСТНИКИ ЧАТОВ === */}
+  <div className="rounded-[28px] border border-gray-200 bg-white p-5">
+    <div className="flex items-start gap-3">
+      <div className="rounded-2xl bg-black p-2 text-white">
+        <AlertTriangle size={17} />
+      </div>
 
-                  <div className="mt-3 grid grid-cols-3 gap-1">
-                    {(["client", "team", "ignore"] as ParticipantRole[]).map(
-                      (role) => {
-                        const active = participant.role === role;
+      <div>
+        <h2 className="text-sm font-semibold text-gray-950">
+          Участники чатов
+        </h2>
+        <p className="mt-1 text-xs leading-5 text-gray-500">
+          Отметь, кто клиент, кто команда, а кого нужно игнорировать при анализе.
+        </p>
+      </div>
+    </div>
 
-                        return (
-                          <button
-                            key={role}
-                            type="button"
-                            onClick={() => updateRole(participant.id, role)}
-                            className={[
-                              "rounded-xl border px-2 py-1.5 text-xs font-medium transition",
-                              active
-                                ? "border-black bg-black text-white"
-                                : "border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:text-black",
-                            ].join(" ")}
-                          >
-                            {role === "client"
-                              ? "Клиент"
-                              : role === "team"
-                                ? "Команда"
-                                : "Игнор"}
-                          </button>
-                        );
-                      },
-                    )}
-                  </div>
-                </div>
-              );
-            })
-          )}
+    <div className="mt-4 space-y-3">
+      {participants.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-gray-200 p-4 text-sm text-gray-500">
+          Участники появятся после первых сообщений.
         </div>
-      </aside>
+      ) : (
+        participants.map((participant) => {
+          const name =
+            participant.name ||
+            (participant.username
+              ? `@${participant.username}`
+              : "Без имени");
+
+          return (
+            <div
+              key={participant.id}
+              className="rounded-3xl border border-gray-100 bg-[#fbfbfa] p-3"
+            >
+              <div className="min-w-0 text-sm font-medium text-gray-950">
+                <div className="truncate">{name}</div>
+                {participant.username ? (
+                  <div className="truncate text-xs font-normal text-gray-400">
+                    @{participant.username}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="mt-3 grid grid-cols-3 gap-1">
+                {(["client", "team", "ignore"] as ParticipantRole[]).map(
+                  (role) => {
+                    const active = participant.role === role;
+
+                    return (
+                      <button
+                        key={role}
+                        type="button"
+                        onClick={() => updateRole(participant.id, role)}
+                        className={[
+                          "rounded-xl border px-2 py-1.5 text-xs font-medium transition",
+                          active
+                            ? "border-black bg-black text-white"
+                            : "border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:text-black",
+                        ].join(" ")}
+                      >
+                        {role === "client"
+                          ? "Клиент"
+                          : role === "team"
+                          ? "Команда"
+                          : "Игнор"}
+                      </button>
+                    );
+                  }
+                )}
+              </div>
+            </div>
+          );
+        })
+      )}
+    </div>
+  </div>
+
+</aside>
+     
     </div>
   );
 }
