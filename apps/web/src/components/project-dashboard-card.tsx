@@ -83,8 +83,8 @@ function formatDate(value: string) {
 }
 
 function getHealthTone(score: number): ProjectHealthTone {
-  if (score <= 45) return "red";
-  if (score <= 75) return "neutral";
+  if (score <= 69) return "red";
+  if (score <= 79) return "neutral";
   return "green";
 }
 
@@ -184,14 +184,14 @@ export function ProjectDashboardCard({
       ? "from-green-300/70 via-green-300/25 to-transparent"
       : tone === "red"
         ? "from-red-300/70 via-red-300/25 to-transparent"
-        : "from-white/20 via-white/10 to-transparent";
+        : "from-yellow-300/70 via-yellow-300/25 to-transparent";
 
   const dot =
     tone === "green"
       ? "bg-green-300 shadow-[0_0_24px_rgba(134,239,172,0.75)]"
       : tone === "red"
         ? "bg-red-300 shadow-[0_0_24px_rgba(252,165,165,0.75)]"
-        : "bg-gray-300 shadow-[0_0_18px_rgba(209,213,219,0.45)]";
+        : "bg-yellow-300 shadow-[0_0_24px_rgba(253,224,71,0.75)]";
 
   return (
     <Link
