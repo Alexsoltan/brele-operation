@@ -66,6 +66,7 @@ function getRangeStart(range: Range, latestDate: Date) {
 
   return date;
 }
+
 function buildSvgPath(points: Array<{ x: number; y: number }>) {
   if (points.length === 0) return "";
 
@@ -73,19 +74,14 @@ function buildSvgPath(points: Array<{ x: number; y: number }>) {
     return `M 0 ${points[0].y} L 100 ${points[0].y}`;
   }
 
-  const radius = 1.5;
   let path = `M 0 ${points[0].y}`;
 
   for (let i = 1; i < points.length; i++) {
     const prev = points[i - 1];
     const curr = points[i];
 
-    const beforeX = Math.max(prev.x, curr.x - radius);
-    const afterX = Math.min(curr.x + radius, 100);
-
-    path += ` L ${beforeX} ${prev.y}`;
-    path += ` Q ${curr.x} ${prev.y} ${curr.x} ${curr.y}`;
-    path += ` L ${afterX} ${curr.y}`;
+    path += ` L ${curr.x} ${prev.y}`;
+    path += ` L ${curr.x} ${curr.y}`;
   }
 
   const last = points[points.length - 1];

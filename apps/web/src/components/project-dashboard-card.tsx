@@ -1,11 +1,10 @@
 import Link from "next/link";
 import {
   Activity,
+  ArrowDownRight,
+  ArrowUpRight,
   CalendarDays,
-  ShieldAlert,
   Smile,
-  TrendingDown,
-  TrendingUp,
   Users,
 } from "lucide-react";
 
@@ -13,15 +12,14 @@ import {
   getProjectHealthCaption,
   getProjectHealthTitle,
   getTrend,
+  meetingImpact,
   moodScore,
-  riskScore,
   type ProjectHealthTone,
   type ProjectHealthTrend,
 } from "@/lib/project-health";
-import type { Meeting, Mood, Project, Risk } from "@/lib/types";
+import type { Meeting, Mood, Project } from "@/lib/types";
 
 type Trend = ProjectHealthTrend;
-type SignalKind = "mood" | "risk";
 
 function latestClientMood(project: Project, meetings: Meeting[]) {
   const latestClientMeeting = meetings.find(
@@ -35,26 +33,15 @@ function latestTeamMood(project: Project, meetings: Meeting[]) {
   return meetings[0]?.teamMood ?? project.teamMood ?? "neutral";
 }
 
-function latestRisk(project: Project, meetings: Meeting[]) {
-  return meetings[0]?.risk ?? project.risk ?? "low";
-}
-
 function getMeetingTrend(
   meetings: Meeting[],
-  field: "clientMood" | "teamMood" | "risk",
+  field: "clientMood" | "teamMood",
 ): Trend {
   const current = meetings[0];
 
   if (!current) return "flat";
 
   const previous = meetings[1];
-
-  if (field === "risk") {
-    return getTrend(
-      riskScore(current.risk),
-      riskScore(previous?.risk ?? "medium"),
-    );
-  }
 
   return getTrend(
     moodScore(current[field]),
@@ -86,50 +73,76 @@ function getHealthTone(score: number): ProjectHealthTone {
   return "green";
 }
 
-function TrendIcon({ trend }: { trend: Trend }) {
-  if (trend === "up") return <TrendingUp size={14} strokeWidth={2.2} />;
-  if (trend === "down") return <TrendingDown size={14} strokeWidth={2.2} />;
-  return <Activity size={14} strokeWidth={2.2} />;
+function getHealthDelta(project: Project, meetings: Meeting[]) {
+  const currentScore = project.healthScore ?? 100;
+  const latestMeeting = meetings[0];
+
+  if (!latestMeeting) return 0;
+
+  const impact = meetingImpact({
+    date: latestMeeting.date,
+    risk: latestMeeting.risk,
+    clientMood: latestMeeting.clientMood,
+    teamMood: latestMeeting.teamMood,
+    hasClient: latestMeeting.hasClient,
+    analysisStatus: latestMeeting.analysisStatus,
+    highlights: latestMeeting.highlights,
+  });
+
+  return currentScore - Math.max(0, Math.min(100, currentScore - impact));
 }
 
-function ProjectStateTrendIcon({ trend }: { trend: Trend }) {
-  const className =
-    trend === "up"
-      ? "text-[#d9ff3f]"
-      : trend === "down"
-        ? "text-[#ffc0c0]"
-        : "text-white/45";
-
-  if (trend === "up") {
-    return <TrendingUp size={24} strokeWidth={2.4} className={className} />;
+function healthCardTone(score: number) {
+  if (score >= 80) {
+    return {
+      panel:
+        "bg-gradient-to-br from-[#c9f5d3] via-[#b7efc4] to-[#9ee6b2] text-black",
+      bubble: "bg-black/10 text-black",
+      dot: "bg-[#9ee6b2] shadow-[0_0_24px_rgba(158,230,178,0.65)]",
+      glow: "from-[#c9f5d3]/35 via-[#9ee6b2]/16 to-transparent",
+    };
   }
 
-  if (trend === "down") {
-    return <TrendingDown size={24} strokeWidth={2.4} className={className} />;
+  if (score >= 70) {
+    return {
+      panel:
+        "bg-gradient-to-br from-[#f6ff8f] via-[#ffe98a] to-[#ffd36b] text-black",
+      bubble: "bg-black/10 text-black",
+      dot: "bg-[#ffe98a] shadow-[0_0_24px_rgba(255,233,138,0.65)]",
+      glow: "from-[#ffe98a]/34 via-[#ffd36b]/16 to-transparent",
+    };
   }
 
-  return <Activity size={24} strokeWidth={2.4} className={className} />;
+  return {
+    panel:
+      "bg-gradient-to-br from-[#ffd7d7] via-[#ffc0c0] to-[#ff9c9c] text-[#7f1d1d]",
+    bubble: "bg-red-900/10 text-[#7f1d1d]",
+    dot: "bg-[#ff9c9c] shadow-[0_0_24px_rgba(255,156,156,0.65)]",
+    glow: "from-[#ffc0c0]/34 via-[#ff9c9c]/16 to-transparent",
+  };
+}
+
+function TrendIcon({ delta }: { delta: number }) {
+  if (delta > 0) return <ArrowUpRight size={15} strokeWidth={2.3} />;
+  if (delta < 0) return <ArrowDownRight size={15} strokeWidth={2.3} />;
+  return <Activity size={15} strokeWidth={2.3} />;
 }
 
 function SignalChip({
   label,
   trend,
-  kind,
   icon: Icon,
 }: {
   label: string;
   trend: Trend;
-  kind: SignalKind;
   icon: typeof Smile;
 }) {
-  const isPositive = kind === "mood" ? trend === "up" : trend === "down";
-  const isNegative = kind === "mood" ? trend === "down" : trend === "up";
-
-  const tone = isPositive
-    ? "border-[#d9ff3f]/30 bg-[#d9ff3f]/10 text-[#d9ff3f]"
-    : isNegative
-      ? "border-[#ffc0c0]/30 bg-[#ffc0c0]/10 text-[#ffc0c0]"
-      : "border-white/10 bg-white/8 text-white/55";
+  const tone =
+    trend === "up"
+      ? "border-[#d9ff3f]/30 bg-[#d9ff3f]/10 text-[#d9ff3f]"
+      : trend === "down"
+        ? "border-[#ffc0c0]/30 bg-[#ffc0c0]/10 text-[#ffc0c0]"
+        : "border-white/10 bg-white/8 text-white/55";
 
   return (
     <span
@@ -140,7 +153,7 @@ function SignalChip({
     >
       <Icon size={13} />
       {label}
-      <TrendIcon trend={trend} />
+      <TrendIcon delta={trend === "up" ? 1 : trend === "down" ? -1 : 0} />
     </span>
   );
 }
@@ -154,106 +167,87 @@ export function ProjectDashboardCard({
 }) {
   const clientMood: Mood = latestClientMood(project, meetings);
   const teamMood: Mood = latestTeamMood(project, meetings);
-  const risk: Risk = latestRisk(project, meetings);
 
   const healthScore = project.healthScore ?? 100;
-  const healthTrend = project.healthTrend ?? "flat";
   const healthTitle = getProjectHealthTitle(healthScore);
   const healthCaption = getProjectHealthCaption(healthScore);
+  const healthDelta = getHealthDelta(project, meetings);
+  const tone = getHealthTone(healthScore);
+  const cardTone = healthCardTone(healthScore);
 
   const clientTrend = getMeetingTrend(
     meetings.filter((meeting) => meeting.hasClient !== false),
     "clientMood",
   );
   const teamTrend = getMeetingTrend(meetings, "teamMood");
-  const riskTrend = getMeetingTrend(meetings, "risk");
 
-  const tone = getHealthTone(healthScore);
   const latestMeeting = latestMeetingLabel(meetings);
-
-  const glow =
-    tone === "green"
-      ? "from-[#c9f5d3]/45 via-[#9ee6b2]/18 to-transparent"
-      : tone === "red"
-        ? "from-[#ffc0c0]/45 via-[#ff9c9c]/18 to-transparent"
-        : "from-[#ffe98a]/45 via-[#ffd36b]/18 to-transparent";
-
-  const dot =
-    tone === "green"
-      ? "bg-[#9ee6b2] shadow-[0_0_24px_rgba(158,230,178,0.7)]"
-      : tone === "red"
-        ? "bg-[#ff9c9c] shadow-[0_0_24px_rgba(255,156,156,0.7)]"
-        : "bg-[#ffe98a] shadow-[0_0_24px_rgba(255,233,138,0.7)]";
 
   return (
     <Link
       href={`/projects/${project.id}`}
-      className="group relative block min-h-[260px] overflow-hidden rounded-[34px] bg-[#1f1f1f] p-6 text-white shadow-[0_24px_80px_rgba(0,0,0,0.10)] transition hover:-translate-y-0.5 hover:shadow-[0_28px_90px_rgba(0,0,0,0.16)]"
+      className="group relative block min-h-[280px] overflow-hidden rounded-[34px] bg-[#1f1f1f] p-5 text-white shadow-[0_24px_80px_rgba(0,0,0,0.10)] transition hover:-translate-y-0.5 hover:shadow-[0_28px_90px_rgba(0,0,0,0.16)]"
     >
       <div
         className={[
-          "pointer-events-none absolute -left-20 -top-24 h-64 w-64 rounded-full bg-gradient-to-br blur-3xl transition group-hover:opacity-90",
-          glow,
+          "pointer-events-none absolute -left-24 -top-28 h-72 w-72 rounded-full bg-gradient-to-br blur-3xl transition",
+          cardTone.glow,
         ].join(" ")}
       />
 
       <div
         className={[
-          "pointer-events-none absolute -right-20 bottom-[-100px] h-72 w-72 rounded-full bg-gradient-to-tl blur-3xl transition group-hover:opacity-90",
-          glow,
+          "pointer-events-none absolute -right-24 bottom-[-120px] h-80 w-80 rounded-full bg-gradient-to-tl blur-3xl transition",
+          cardTone.glow,
         ].join(" ")}
       />
 
       <div className="relative flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h2 className="truncate font-heading text-xl font-semibold tracking-[-0.03em]">
-            {project.name}
-          </h2>
+        <h2 className="truncate font-heading text-3xl font-semibold tracking-[-0.03em]">
+          {project.name}
+        </h2>
 
-          <div className="mt-1 text-xs text-white/35">
-            ProjectHealth: {healthScore}
+      </div>
+
+      <div
+        className={[
+          "relative mt-7 inline-block max-w-[240px] overflow-hidden rounded-[24px] px-4 py-3",
+          cardTone.panel,
+        ].join(" ")}
+      >
+        <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-white/35 blur-3xl" />
+
+        <div className="relative flex items-start gap-2">
+          <div className="font-heading text-[44px] font-semibold leading-none tracking-[-0.08em]">
+            {healthScore}
+          </div>
+
+          <div
+            className={[
+              "mt-1 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold",
+              cardTone.bubble,
+            ].join(" ")}
+          >
+            <TrendIcon delta={healthDelta} />
+            {healthDelta > 0 ? `+${healthDelta}` : healthDelta}
           </div>
         </div>
 
-        <span className={["h-3.5 w-3.5 shrink-0 rounded-full", dot].join(" ")} />
-      </div>
-
-      <div className="relative mt-12">
-        <div className="flex items-center gap-3">
-          <div className="font-heading text-[34px] font-semibold leading-none tracking-[-0.06em]">
-            {healthTitle}
-          </div>
-
-          <ProjectStateTrendIcon trend={healthTrend} />
+        <div className="relative mt-2 text-base font-semibold">
+          {healthTitle}
         </div>
-
-        <div className="mt-3 text-sm text-white/45">{healthCaption}</div>
       </div>
 
-      <div className="relative mt-6 flex flex-wrap gap-2">
-        <SignalChip
-          label="Клиент"
-          trend={clientTrend}
-          kind="mood"
-          icon={Smile}
-        />
-
-        <SignalChip
-          label="Команда"
-          trend={teamTrend}
-          kind="mood"
-          icon={Users}
-        />
-
-        <SignalChip
-          label="Риск"
-          trend={riskTrend}
-          kind="risk"
-          icon={ShieldAlert}
-        />
+      <div className="relative mt-4 text-sm leading-5 text-white/45">
+        {healthCaption}
       </div>
 
-      <div className="relative mt-6 flex items-center gap-2 text-xs text-white/35">
+      <div className="relative mt-5 flex flex-wrap gap-2">
+        <SignalChip label="Клиент" trend={clientTrend} icon={Smile} />
+        <SignalChip label="Команда" trend={teamTrend} icon={Users} />
+      </div>
+
+      <div className="relative mt-5 flex items-center gap-2 text-xs text-white/35">
         <CalendarDays size={14} />
         Последняя встреча: {formatDate(latestMeeting)}
       </div>

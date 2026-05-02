@@ -5,7 +5,7 @@ import { Activity, ArrowDownRight, ArrowUpRight } from "lucide-react";
 
 import type { Meeting, Project } from "@/lib/types";
 
-type Range = "month" | "quarter" | "year" | "all";
+type Range = "week" | "month" | "quarter" | "year" | "all";
 
 type HealthPoint = {
   id: string;
@@ -63,6 +63,7 @@ function formatShortDate(value: string) {
 function getRangeStart(range: Range, latestDate: Date) {
   const date = new Date(latestDate);
 
+  if (range === "week") date.setDate(date.getDate() - 7);
   if (range === "month") date.setMonth(date.getMonth() - 1);
   if (range === "quarter") date.setMonth(date.getMonth() - 3);
   if (range === "year") date.setFullYear(date.getFullYear() - 1);
@@ -76,22 +77,22 @@ function buildSvgPath(points: Array<{ x: number; y: number }>) {
     return `M 0 ${points[0].y} L 100 ${points[0].y}`;
   }
 
-  const radius = 1.5;
   let path = `M 0 ${points[0].y}`;
 
   for (let i = 1; i < points.length; i++) {
     const prev = points[i - 1];
     const curr = points[i];
 
-    const beforeX = Math.max(prev.x, curr.x - radius);
-    const afterX = Math.min(curr.x + radius, 100);
+    // 1. идем горизонтально до новой точки
+    path += ` L ${curr.x} ${prev.y}`;
 
-    path += ` L ${beforeX} ${prev.y}`;
-    path += ` Q ${curr.x} ${prev.y} ${curr.x} ${curr.y}`;
-    path += ` L ${afterX} ${curr.y}`;
+    // 2. потом вертикально вниз/вверх
+    path += ` L ${curr.x} ${curr.y}`;
   }
 
   const last = points[points.length - 1];
+
+  // дотянуть до конца графика
   path += ` L 100 ${last.y}`;
 
   return path;
@@ -112,17 +113,22 @@ function normalizeChartPoints(points: HealthPoint[]) {
   });
 }
 
-function normalizeMarkerPoints(points: ReturnType<typeof normalizeChartPoints>) {
-  const radius = 1.5;
+function getDateTicks<T extends { id: string; date: string; x: number }>(
+  points: T[],
+) {
+  if (points.length <= 5) return points;
 
-  return points.map((point, index) => {
-    if (index === 0) return { ...point, x: 0 };
+  const indexes = new Set<number>();
 
-    return {
-      ...point,
-      x: Math.min(point.x + radius, 100),
-    };
-  });
+  indexes.add(0);
+  indexes.add(points.length - 1);
+  indexes.add(Math.round((points.length - 1) * 0.25));
+  indexes.add(Math.round((points.length - 1) * 0.5));
+  indexes.add(Math.round((points.length - 1) * 0.75));
+
+  return [...indexes]
+    .sort((a, b) => a - b)
+    .map((index) => points[index]);
 }
 
 export function ProjectHealthV2({
@@ -178,7 +184,8 @@ export function ProjectHealthV2({
         : 0;
 
   const normalizedPoints = normalizeChartPoints(chartPoints);
-  const markerPoints = normalizeMarkerPoints(normalizedPoints);
+  const markerPoints = normalizedPoints;
+  const dateTicks = getDateTicks(normalizedPoints);
   const path = buildSvgPath(normalizedPoints);
     return (
     <section className="rounded-[34px] bg-[#1f1f1f] p-5 text-white shadow-[0_24px_80px_rgba(0,0,0,0.14)]">
@@ -194,6 +201,7 @@ export function ProjectHealthV2({
 
         <div className="inline-flex rounded-full bg-white/10 p-1 text-xs font-medium text-white/55">
           {[
+            ["week", "Неделя"],
             ["month", "Месяц"],
             ["quarter", "Квартал"],
             ["year", "Год"],
@@ -259,14 +267,14 @@ export function ProjectHealthV2({
 
         <div className="relative min-h-[315px]">
           <div className="absolute inset-x-0 bottom-4 top-5">
-            <div className="absolute bottom-10 left-6 top-2 w-px bg-white/12" />
-            <div className="absolute bottom-10 left-6 right-6 h-px bg-white/12" />
-            <div className="absolute bottom-10 left-6 right-6 top-[30%] h-px bg-[#f8b4b4]/70" />
+            <div className="absolute bottom-10 left-8 top-2 w-px bg-white/25" />
+            <div className="absolute bottom-10 left-8 right-6 h-px bg-white/25" />
+            <div className="absolute bottom-10 left-8 right-6 top-[30%] h-px bg-[#f8b4b4]/70" />
 
             <svg
               viewBox="0 0 100 100"
               preserveAspectRatio="none"
-              className="absolute inset-x-6 bottom-10 top-2 h-[230px] w-[calc(100%-48px)] overflow-visible"
+              className="absolute bottom-10 left-12 right-6 top-2 h-[230px] w-[calc(100%-72px)] overflow-visible"
             >
               <path
                 d={path}
@@ -279,7 +287,7 @@ export function ProjectHealthV2({
               />
             </svg>
 
-            <div className="absolute inset-x-6 bottom-10 top-2">
+            <div className="absolute bottom-10 left-12 right-6 top-2">
               {markerPoints.map((point) => (
                 <div
                   key={point.id}
@@ -293,17 +301,25 @@ export function ProjectHealthV2({
               ))}
             </div>
 
-            <div className="absolute bottom-0 left-6 right-6 flex justify-between text-[12px] text-white/35">
-              {chartPoints.length <= 1 ? (
-                <span>{formatShortDate(chartPoints[0].date)}</span>
-              ) : (
-                <>
-                  <span>{formatShortDate(chartPoints[0].date)}</span>
-                  <span>
-                    {formatShortDate(chartPoints[chartPoints.length - 1].date)}
-                  </span>
-                </>
-              )}
+            <div className="absolute bottom-0 left-12 right-6 h-5">
+              {dateTicks.map((point, index) => (
+                <span
+                  key={`${point.id}-${index}`}
+                  className={[
+                    "absolute top-0 whitespace-nowrap text-[11px] text-white/35",
+                    index === 0
+                      ? "translate-x-0"
+                      : index === dateTicks.length - 1
+                        ? "-translate-x-full"
+                        : "-translate-x-1/2",
+                  ].join(" ")}
+                  style={{
+                    left: `${point.x}%`,
+                  }}
+                >
+                  {formatShortDate(point.date)}
+                </span>
+              ))}
             </div>
           </div>
         </div>
