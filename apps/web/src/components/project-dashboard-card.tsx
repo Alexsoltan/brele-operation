@@ -1,13 +1,11 @@
 import Link from "next/link";
 import {
-  CalendarDays,
   Activity,
-  Minus,
+  CalendarDays,
   ShieldAlert,
   Smile,
   TrendingDown,
   TrendingUp,
-  Zap,
   Users,
 } from "lucide-react";
 
@@ -89,34 +87,28 @@ function getHealthTone(score: number): ProjectHealthTone {
 }
 
 function TrendIcon({ trend }: { trend: Trend }) {
-  if (trend === "up") {
-    return <TrendingUp size={15} strokeWidth={2.2} />;
-  }
-
-  if (trend === "down") {
-    return <TrendingDown size={15} strokeWidth={2.2} />;
-  }
-
-  return <Activity size={15} strokeWidth={2.2} />;
+  if (trend === "up") return <TrendingUp size={14} strokeWidth={2.2} />;
+  if (trend === "down") return <TrendingDown size={14} strokeWidth={2.2} />;
+  return <Activity size={14} strokeWidth={2.2} />;
 }
 
 function ProjectStateTrendIcon({ trend }: { trend: Trend }) {
   const className =
     trend === "up"
-      ? "text-green-200 drop-shadow-[0_0_16px_rgba(134,239,172,0.5)]"
+      ? "text-[#d9ff3f]"
       : trend === "down"
-        ? "text-red-200 drop-shadow-[0_0_16px_rgba(252,165,165,0.5)]"
+        ? "text-[#ffc0c0]"
         : "text-white/45";
 
   if (trend === "up") {
-    return <TrendingUp size={28} strokeWidth={2.4} className={className} />;
+    return <TrendingUp size={24} strokeWidth={2.4} className={className} />;
   }
 
   if (trend === "down") {
-    return <TrendingDown size={28} strokeWidth={2.4} className={className} />;
+    return <TrendingDown size={24} strokeWidth={2.4} className={className} />;
   }
 
-  return <Activity size={28} strokeWidth={2.4} className={className} />;
+  return <Activity size={24} strokeWidth={2.4} className={className} />;
 }
 
 function SignalChip({
@@ -134,15 +126,15 @@ function SignalChip({
   const isNegative = kind === "mood" ? trend === "down" : trend === "up";
 
   const tone = isPositive
-    ? "bg-green-300/15 text-green-200 ring-green-300/25"
+    ? "border-[#d9ff3f]/30 bg-[#d9ff3f]/10 text-[#d9ff3f]"
     : isNegative
-      ? "bg-red-300/15 text-red-200 ring-red-300/25"
-      : "bg-white/10 text-white/55 ring-white/10";
+      ? "border-[#ffc0c0]/30 bg-[#ffc0c0]/10 text-[#ffc0c0]"
+      : "border-white/10 bg-white/8 text-white/55";
 
   return (
     <span
       className={[
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1",
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium",
         tone,
       ].join(" ")}
     >
@@ -181,48 +173,54 @@ export function ProjectDashboardCard({
 
   const glow =
     tone === "green"
-      ? "from-green-300/70 via-green-300/25 to-transparent"
+      ? "from-[#c9f5d3]/45 via-[#9ee6b2]/18 to-transparent"
       : tone === "red"
-        ? "from-red-300/70 via-red-300/25 to-transparent"
-        : "from-yellow-300/70 via-yellow-300/25 to-transparent";
+        ? "from-[#ffc0c0]/45 via-[#ff9c9c]/18 to-transparent"
+        : "from-[#ffe98a]/45 via-[#ffd36b]/18 to-transparent";
 
   const dot =
     tone === "green"
-      ? "bg-green-300 shadow-[0_0_24px_rgba(134,239,172,0.75)]"
+      ? "bg-[#9ee6b2] shadow-[0_0_24px_rgba(158,230,178,0.7)]"
       : tone === "red"
-        ? "bg-red-300 shadow-[0_0_24px_rgba(252,165,165,0.75)]"
-        : "bg-yellow-300 shadow-[0_0_24px_rgba(253,224,71,0.75)]";
+        ? "bg-[#ff9c9c] shadow-[0_0_24px_rgba(255,156,156,0.7)]"
+        : "bg-[#ffe98a] shadow-[0_0_24px_rgba(255,233,138,0.7)]";
 
   return (
     <Link
       href={`/projects/${project.id}`}
-      className="relative block overflow-hidden rounded-[32px] bg-[#20201f] p-6 text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+      className="group relative block min-h-[260px] overflow-hidden rounded-[34px] bg-[#1f1f1f] p-6 text-white shadow-[0_24px_80px_rgba(0,0,0,0.10)] transition hover:-translate-y-0.5 hover:shadow-[0_28px_90px_rgba(0,0,0,0.16)]"
     >
       <div
         className={[
-          "pointer-events-none absolute -left-20 -top-24 h-60 w-60 rounded-full bg-gradient-to-br blur-2xl",
+          "pointer-events-none absolute -left-20 -top-24 h-64 w-64 rounded-full bg-gradient-to-br blur-3xl transition group-hover:opacity-90",
           glow,
         ].join(" ")}
       />
 
       <div
         className={[
-          "pointer-events-none absolute -right-16 bottom-[-88px] h-60 w-60 rounded-full bg-gradient-to-tl blur-2xl",
+          "pointer-events-none absolute -right-20 bottom-[-100px] h-72 w-72 rounded-full bg-gradient-to-tl blur-3xl transition group-hover:opacity-90",
           glow,
         ].join(" ")}
       />
 
       <div className="relative flex items-start justify-between gap-4">
-        <h2 className="truncate font-heading text-xl font-semibold tracking-[-0.03em]">
-          {project.name}
-        </h2>
+        <div className="min-w-0">
+          <h2 className="truncate font-heading text-xl font-semibold tracking-[-0.03em]">
+            {project.name}
+          </h2>
 
-        <span className={["h-3.5 w-3.5 rounded-full", dot].join(" ")} />
+          <div className="mt-1 text-xs text-white/35">
+            ProjectHealth: {healthScore}
+          </div>
+        </div>
+
+        <span className={["h-3.5 w-3.5 shrink-0 rounded-full", dot].join(" ")} />
       </div>
 
       <div className="relative mt-12">
         <div className="flex items-center gap-3">
-          <div className="font-heading text-[32px] font-semibold leading-none tracking-[-0.06em]">
+          <div className="font-heading text-[34px] font-semibold leading-none tracking-[-0.06em]">
             {healthTitle}
           </div>
 
@@ -255,7 +253,7 @@ export function ProjectDashboardCard({
         />
       </div>
 
-      <div className="relative mt-6 flex items-center gap-2 text-xs text-white/40">
+      <div className="relative mt-6 flex items-center gap-2 text-xs text-white/35">
         <CalendarDays size={14} />
         Последняя встреча: {formatDate(latestMeeting)}
       </div>

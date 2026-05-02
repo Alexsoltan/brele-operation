@@ -33,7 +33,7 @@ export function AppSidebar() {
   }
 
   return (
-    <aside className="fixed left-0 top-0 z-20 flex h-screen w-72 flex-col bg-[#1f1f1f] py-5">
+    <aside className="fixed left-0 top-0 z-20 flex h-screen w-60 flex-col bg-[#1f1f1f] py-5">
       <div className="pb-10 pl-8 pt-6">
         <Link href="/" className="block leading-none">
           <img
@@ -44,7 +44,7 @@ export function AppSidebar() {
         </Link>
       </div>
 
-      <nav className="flex-1 space-y-2 px-4">
+      <nav className="flex-1 space-y-2 px-3">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive =
@@ -78,7 +78,7 @@ export function AppSidebar() {
         })}
       </nav>
 
-      <div className="space-y-2 px-4 pt-5">
+      <div className="space-y-2 px-3 pt-5">
         <Link
           href="/settings"
           className={[

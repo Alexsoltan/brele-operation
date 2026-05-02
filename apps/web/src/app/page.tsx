@@ -56,15 +56,11 @@ export default function DashboardPage() {
   }, [projects]);
 
   if (loading) {
-    return (
-      <div className="p-6 text-sm text-gray-500">
-        Загрузка дашборда...
-      </div>
-    );
+    return <div className="p-6 text-sm text-gray-500">Загрузка дашборда...</div>;
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
       <header>
         <PageTitle>Состояние проектов</PageTitle>
 
@@ -74,11 +70,11 @@ export default function DashboardPage() {
       </header>
 
       {sortedProjects.length === 0 ? (
-        <section className="rounded-3xl border border-dashed border-gray-200 bg-white p-8 text-sm text-gray-500">
+        <section className="rounded-[34px] border border-dashed border-gray-200 bg-white p-8 text-sm text-gray-500">
           Активных проектов пока нет.
         </section>
       ) : (
-        <section className="grid grid-cols-3 gap-4">
+        <section className="grid grid-cols-3 gap-5">
           {sortedProjects.map((project) => (
             <ProjectDashboardCard
               key={project.id}
