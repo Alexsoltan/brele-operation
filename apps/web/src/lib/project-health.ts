@@ -116,33 +116,31 @@ export function calculateRawProjectHealthScore(
 }
 
 export function getProjectHealthLabel(score: number): ProjectHealthLabel {
-  if (score <= 45) return "critical";
-  if (score <= 75) return "attention";
+  if (score <= 69) return "critical";
+  if (score <= 79) return "attention";
   return "stable";
 }
 
 export function getProjectHealthTone(score: number): ProjectHealthTone {
-  const label = getProjectHealthLabel(score);
-
-  if (label === "critical") return "red";
-  if (label === "attention") return "neutral";
+  if (score <= 69) return "red";
+  if (score <= 79) return "neutral";
   return "green";
 }
 
 export function getProjectHealthTitle(score: number) {
-  const label = getProjectHealthLabel(score);
-
-  if (label === "critical") return "Есть риск";
-  if (label === "attention") return "Нейтрально";
-  return "Стабильно";
+  if (score >= 90) return "Отлично";
+  if (score >= 80) return "Стабильно";
+  if (score >= 70) return "Появились риски";
+  if (score >= 50) return "Критично";
+  return "Паника";
 }
 
 export function getProjectHealthCaption(score: number) {
-  const label = getProjectHealthLabel(score);
-
-  if (label === "critical") return "нужна реакция";
-  if (label === "attention") return "есть сигналы просадки";
-  return "проект под контролем";
+  if (score >= 90) return "проект в отличном состоянии";
+  if (score >= 80) return "проект под контролем";
+  if (score >= 70) return "есть сигналы просадки";
+  if (score >= 50) return "нужна реакция";
+  return "требуется срочное вмешательство";
 }
 
 export function buildProjectHealthSummary(

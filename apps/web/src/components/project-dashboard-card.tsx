@@ -1,11 +1,13 @@
 import Link from "next/link";
 import {
   CalendarDays,
+  Activity,
   Minus,
   ShieldAlert,
   Smile,
   TrendingDown,
   TrendingUp,
+  Zap,
   Users,
 } from "lucide-react";
 
@@ -95,7 +97,7 @@ function TrendIcon({ trend }: { trend: Trend }) {
     return <TrendingDown size={15} strokeWidth={2.2} />;
   }
 
-  return <Minus size={15} strokeWidth={2.2} />;
+  return <Activity size={15} strokeWidth={2.2} />;
 }
 
 function ProjectStateTrendIcon({ trend }: { trend: Trend }) {
@@ -114,7 +116,7 @@ function ProjectStateTrendIcon({ trend }: { trend: Trend }) {
     return <TrendingDown size={28} strokeWidth={2.4} className={className} />;
   }
 
-  return <Minus size={28} strokeWidth={2.4} className={className} />;
+  return <Activity size={28} strokeWidth={2.4} className={className} />;
 }
 
 function SignalChip({
