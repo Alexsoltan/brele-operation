@@ -78,19 +78,6 @@ export function ProjectChatSummaryV2({ projectId }: { projectId: string }) {
           <p className="mt-3 line-clamp-6 text-sm leading-6 text-white/70">
             {latestSummary.summary}
           </p>
-
-          {latestSummary.highlights.length > 0 ? (
-            <div className="mt-4 space-y-2">
-              {latestSummary.highlights.slice(0, 2).map((highlight, index) => (
-                <div
-                  key={`${highlight}-${index}`}
-                  className="rounded-2xl bg-white/8 px-3 py-2 text-xs leading-5 text-white/60"
-                >
-                  {highlight}
-                </div>
-              ))}
-            </div>
-          ) : null}
         </div>
       ) : (
         <div className="mt-4 rounded-[24px] border border-white/10 p-4 text-sm leading-6 text-white/45">
