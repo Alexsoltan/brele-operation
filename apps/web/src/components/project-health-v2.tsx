@@ -222,7 +222,7 @@ export function ProjectHealthV2({
         </div>
       </div>
 
-      <div className="grid grid-cols-[230px_1fr] gap-4">
+      <div className="grid grid-cols-[190px_minmax(0,1fr)] gap-4">
         <div className="space-y-5">
           <div
             className={[
@@ -267,9 +267,8 @@ export function ProjectHealthV2({
 
         <div className="relative min-h-[315px]">
           <div className="absolute inset-x-0 bottom-4 top-5">
-            <div className="absolute bottom-10 left-8 top-2 w-px bg-white/25" />
-            <div className="absolute bottom-10 left-8 right-6 h-px bg-white/25" />
-            <div className="absolute bottom-10 left-8 right-6 top-[30%] h-px bg-[#f8b4b4]/70" />
+            <div className="absolute bottom-10 left-12 right-6 h-px bg-white/25" />
+            <div className="absolute bottom-10 left-12 right-6 top-[30%] h-px border-t border-dashed border-[#f8b4b4]/70" />
 
             <svg
               viewBox="0 0 100 100"
@@ -301,7 +300,7 @@ export function ProjectHealthV2({
               ))}
             </div>
 
-            <div className="absolute bottom-0 left-12 right-6 h-5">
+            <div className="absolute bottom-2 left-12 right-6 h-5">
               {dateTicks.map((point, index) => (
                 <span
                   key={`${point.id}-${index}`}

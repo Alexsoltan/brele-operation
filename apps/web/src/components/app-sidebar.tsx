@@ -33,7 +33,7 @@ export function AppSidebar() {
   }
 
   return (
-    <aside className="fixed left-0 top-0 z-20 flex h-screen w-60 flex-col bg-[#1f1f1f] py-5">
+    <aside className="fixed left-0 top-0 z-20 flex h-screen w-64 flex-col bg-[#1f1f1f] py-5">
       <div className="pb-10 pl-8 pt-6">
         <Link href="/" className="block leading-none">
           <img

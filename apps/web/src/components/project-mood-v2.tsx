@@ -182,7 +182,7 @@ export function ProjectMoodV2({
         </p>
       </div>
 
-      <div className="grid grid-cols-[230px_1fr] gap-4">
+      <div className="grid grid-cols-[190px_minmax(0,1fr)] gap-4">
         <div className="space-y-4">
           <div
             className={[

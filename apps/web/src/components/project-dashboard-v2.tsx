@@ -12,6 +12,7 @@ type ProjectSignal = {
   text: string;
   type: "risk" | "warning" | "opportunity";
   date: string;
+  sourceLabel: string;
 };
 
 type HealthPoint = {
@@ -21,6 +22,17 @@ type HealthPoint = {
   delta: number;
   impact: number;
 };
+
+function getMeetingSourceLabel(meeting: Meeting) {
+  const typedMeeting = meeting as Meeting & {
+    meetingType?: string | null;
+    type?: {
+      name?: string | null;
+    } | null;
+  };
+
+  return typedMeeting.type?.name || typedMeeting.meetingType || "Встреча";
+}
 
 function detectSignalType(text: string): ProjectSignal["type"] {
   const lower = text.toLowerCase();
@@ -50,9 +62,10 @@ function extractSignals(meetings: Meeting[]): ProjectSignal[] {
     .slice(0, 10)
     .flatMap((meeting) =>
       meeting.highlights.map((highlight) => ({
-        text: highlight,
-        type: detectSignalType(highlight),
-        date: meeting.date,
+          text: highlight,
+          type: detectSignalType(highlight),
+          date: meeting.date,
+          sourceLabel: getMeetingSourceLabel(meeting),
       })),
     )
     .slice(0, 6);
@@ -70,7 +83,7 @@ export function ProjectDashboardV2({
   const signals = useMemo(() => extractSignals(meetings), [meetings]);
 
   return (
-    <div className="grid grid-cols-[1fr_320px] gap-6">
+    <div className="grid grid-cols-[minmax(0,1fr)_440px] gap-6">
       <main className="space-y-6">
         <ProjectHealthV2
           project={project}

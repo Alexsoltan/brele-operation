@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, CircleDot, TrendingUp } from "lucide-react";
+import { AlertTriangle, CircleDot, MessageCircle, TrendingUp } from "lucide-react";
 
 import { formatMeetingDate } from "@/lib/types";
 
@@ -8,6 +8,7 @@ type ProjectSignal = {
   text: string;
   type: "risk" | "warning" | "opportunity";
   date: string;
+  sourceLabel: string;
 };
 
 function signalIcon(type: ProjectSignal["type"]) {
@@ -18,14 +19,23 @@ function signalIcon(type: ProjectSignal["type"]) {
 
 function signalTone(type: ProjectSignal["type"]) {
   if (type === "risk") {
-    return "border-[#f8b4b4] bg-[#fff5f5] text-[#7f1d1d]";
+    return {
+      icon: "text-[#9f2a2a]",
+      marker: "bg-[#ffd7d7] text-[#7f1d1d]",
+    };
   }
 
   if (type === "warning") {
-    return "border-[#fff3a3] bg-[#fffbea] text-[#7c5a00]";
+    return {
+      icon: "text-[#8a6a00]",
+      marker: "bg-[#fff3a3] text-[#6f5200]",
+    };
   }
 
-  return "border-[#c9f5d3] bg-[#f3fff6] text-[#1f6b35]";
+  return {
+    icon: "text-[#2f7a45]",
+    marker: "bg-[#c9f5d3] text-[#1f5f34]",
+  };
 }
 
 export function ProjectSignalsV2({ signals }: { signals: ProjectSignal[] }) {
@@ -43,21 +53,34 @@ export function ProjectSignalsV2({ signals }: { signals: ProjectSignal[] }) {
         ) : (
           signals.map((signal, index) => {
             const Icon = signalIcon(signal.type);
+            const tone = signalTone(signal.type);
 
             return (
               <div
                 key={`${signal.text}-${index}`}
-                className={[
-                  "rounded-[24px] border p-4",
-                  signalTone(signal.type),
-                ].join(" ")}
+                className="rounded-[24px] border border-gray-200 bg-white p-4"
               >
-                <div className="mb-2 flex items-center gap-2 text-xs font-semibold opacity-80">
-                  <Icon size={14} />
-                  {formatMeetingDate(signal.date)}
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-black px-2.5 py-1 text-xs font-semibold text-white">
+                    <MessageCircle size={12} />
+                    {signal.sourceLabel}
+                  </span>
+
+                  <span className="text-xs font-semibold text-gray-500">
+                    {formatMeetingDate(signal.date)}
+                  </span>
+
+                  <span
+                    className={[
+                      "ml-auto inline-flex h-7 w-7 items-center justify-center rounded-full",
+                      tone.marker,
+                    ].join(" ")}
+                  >
+                    <Icon size={14} />
+                  </span>
                 </div>
 
-                <p className="text-sm leading-5">
+                <p className="text-sm leading-5 text-gray-700">
                   {signal.text}
                 </p>
               </div>
