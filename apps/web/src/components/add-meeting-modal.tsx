@@ -278,6 +278,7 @@ export function AddMeetingModal({
             highlights: Array.isArray(result.highlights)
               ? result.highlights
               : [],
+            signals: Array.isArray(result.signals) ? result.signals : [],
             clientMood: hasClient ? result.clientMood ?? "neutral" : "neutral",
             teamMood: result.teamMood ?? "neutral",
             risk: result.risk ?? "low",

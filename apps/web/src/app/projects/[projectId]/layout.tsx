@@ -15,12 +15,13 @@ function normalizeParam(value: string | string[] | undefined) {
   return value ?? "";
 }
 
-type Tab = "dashboard" | "meetings" | "chats" | "settings";
+type Tab = "dashboard" | "meetings" | "chats" | "signals" | "settings";
 
 const tabConfig = [
   { key: "dashboard", label: "Дашборд проекта" },
   { key: "meetings", label: "Встречи" },
   { key: "chats", label: "Чаты" },
+  { key: "signals", label: "Сигналы" },
 ];
 
 export default function ProjectLayout({
@@ -53,6 +54,7 @@ export default function ProjectLayout({
   function getCurrentTab(): Tab {
     if (pathname.includes("/meetings")) return "meetings";
     if (pathname.includes("/chats")) return "chats";
+    if (pathname.includes("/signals")) return "signals";
     return "dashboard";
   }
 

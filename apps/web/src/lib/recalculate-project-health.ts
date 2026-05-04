@@ -1,45 +1,76 @@
 import { prisma } from "@/lib/prisma";
-import {
-  calculateProjectHealth,
-  clampHealthScore,
-  meetingImpact,
-} from "@/lib/project-health";
-import { getProjectScoringWeights } from "@/lib/project-scoring-config";
-import type { MeetingAnalysisStatus, Mood, Risk } from "@/lib/types";
+import { clampHealthScore } from "@/lib/project-health";
+import { getSignalWeightConfig } from "@/lib/signal-weight-config";
+import type {
+  Mood,
+  ProjectHealthLabel,
+  ProjectHealthTrend,
+  ProjectSignal,
+  Risk,
+  SignalWeightConfig,
+} from "@/lib/types";
 
-type RecalculateMeeting = {
-  id: string;
-  date: Date;
-  risk: Risk;
-  clientMood: Mood;
-  teamMood: Mood;
-  hasClient: boolean;
-  analysisStatus: MeetingAnalysisStatus;
-  highlights: string[];
-};
+function clampScore(value: number) {
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
 
-type NormalizedRecalculateMeeting = {
-  id: string;
-  date: string;
-  risk: Risk;
-  clientMood: Mood;
-  teamMood: Mood;
-  hasClient: boolean;
-  analysisStatus: MeetingAnalysisStatus;
-  highlights: string[];
-};
+function scoreToMood(score: number): Mood {
+  if (score >= 75) return "good";
+  if (score <= 45) return "bad";
+  return "neutral";
+}
+
+function scoreToRisk(score: number): Risk {
+  if (score <= 55) return "high";
+  if (score <= 75) return "medium";
+  return "low";
+}
+
+function getHealthLabel(score: number): ProjectHealthLabel {
+  if (score <= 69) return "critical";
+  if (score <= 79) return "attention";
+  return "stable";
+}
+
+function getHealthTrend(
+  currentScore: number,
+  previousScore: number,
+): ProjectHealthTrend {
+  if (currentScore > previousScore) return "up";
+  if (currentScore < previousScore) return "down";
+  return "flat";
+}
+
+function buildHealthSummary(signalCount: number, score: number) {
+  if (signalCount === 0) {
+    return "Пока недостаточно сигналов для оценки проекта.";
+  }
+
+  if (score <= 45) {
+    return "Проект в зоне риска: есть критичные сигналы.";
+  }
+
+  if (score <= 69) {
+    return "Есть заметные проблемы, требующие внимания.";
+  }
+
+  if (score <= 79) {
+    return "Проект нестабилен, стоит следить за динамикой.";
+  }
+
+  return "Проект выглядит стабильно.";
+}
 
 export async function recalculateProjectHealth(
   projectId: string,
   workspaceId?: string | null,
 ) {
   const project = await prisma.project.findUnique({
-    where: {
-      id: projectId,
-    },
+    where: { id: projectId },
     select: {
       id: true,
       workspaceId: true,
+      healthScore: true,
     },
   });
 
@@ -49,72 +80,65 @@ export async function recalculateProjectHealth(
 
   const resolvedWorkspaceId = workspaceId ?? project.workspaceId ?? null;
 
-  const meetings = await prisma.meeting.findMany({
+  const rawSignals = await prisma.projectSignal.findMany({
     where: {
       projectId,
-      deletedAt: null,
+      status: "active",
     },
     orderBy: {
-      date: "asc",
-    },
-    select: {
-      id: true,
-      date: true,
-      risk: true,
-      clientMood: true,
-      teamMood: true,
-      hasClient: true,
-      analysisStatus: true,
-      highlights: true,
+      occurredAt: "asc",
     },
   });
 
-  const weights = await getProjectScoringWeights(resolvedWorkspaceId);
+  const signals: ProjectSignal[] = rawSignals.map((signal: any) => ({
+    ...signal,
+    occurredAt: signal.occurredAt.toISOString(),
+    createdAt: signal.createdAt.toISOString(),
+    updatedAt: signal.updatedAt.toISOString(),
+  }));
 
-  const normalizedMeetings: NormalizedRecalculateMeeting[] = meetings.map(
-    (meeting: RecalculateMeeting) => ({
-      id: meeting.id,
-      date: meeting.date.toISOString(),
-      risk: meeting.risk,
-      clientMood: meeting.clientMood,
-      teamMood: meeting.teamMood,
-      hasClient: meeting.hasClient,
-      analysisStatus: meeting.analysisStatus,
-      highlights: meeting.highlights,
-    }),
-  );
-    const result = calculateProjectHealth(normalizedMeetings, weights);
+  const weights = (await getSignalWeightConfig(
+    resolvedWorkspaceId,
+  )) as SignalWeightConfig[];
 
-  let currentScore = 100;
+  let healthScore = 100;
+  let clientMoodScore = 60;
+  let teamMoodScore = 60;
 
-  const healthPoints = normalizedMeetings
-    .filter((meeting) => meeting.analysisStatus !== "pending")
-    .filter((meeting) => meeting.analysisStatus !== "error")
-    .map((meeting) => {
-      const impact = meetingImpact(meeting, weights);
-      const previousScore = currentScore;
+  const healthPoints = signals.map((signal) => {
+    const config = weights.find((weight) => weight.type === signal.type);
 
-      currentScore = clampHealthScore(currentScore + impact);
+    const healthImpact = Math.round(config?.weight ?? 0);
+    const clientImpact = config?.clientMoodImpact ?? 0;
+    const teamImpact = config?.teamMoodImpact ?? 0;
 
-      return {
-        projectId: project.id,
-        meetingId: meeting.id,
-        date: new Date(meeting.date),
-        score: currentScore,
-        delta: currentScore - previousScore,
-        impact,
-        risk: meeting.risk,
-        clientMood: meeting.clientMood,
-        teamMood: meeting.teamMood,
-        hasClient: meeting.hasClient,
-      };
-    });
+    const previousScore = healthScore;
+
+    healthScore = clampHealthScore(healthScore + healthImpact);
+    clientMoodScore = clampScore(clientMoodScore + clientImpact);
+    teamMoodScore = clampScore(teamMoodScore + teamImpact);
+
+    return {
+      projectId: project.id,
+      meetingId: null,
+      date: new Date(signal.occurredAt),
+      score: healthScore,
+      delta: healthScore - previousScore,
+      impact: healthImpact,
+      risk: scoreToRisk(healthScore),
+      clientMood: scoreToMood(clientMoodScore),
+      teamMood: scoreToMood(teamMoodScore),
+      hasClient: true,
+    };
+  });
+
+  const healthTrend = getHealthTrend(healthScore, project.healthScore ?? 100);
+  const healthLabel = getHealthLabel(healthScore);
+  const healthSummary = buildHealthSummary(signals.length, healthScore);
 
   await prisma.$transaction([
     prisma.projectHealthPoint.deleteMany({
-      where: {
-        projectId: project.id,
-      },
+      where: { projectId: project.id },
     }),
 
     ...(healthPoints.length > 0
@@ -126,22 +150,21 @@ export async function recalculateProjectHealth(
       : []),
 
     prisma.project.update({
-      where: {
-        id: project.id,
-      },
+      where: { id: project.id },
       data: {
-        healthScore: result.score,
-        healthTrend: result.trend,
-        healthLabel: result.label,
-        healthSummary: result.summary,
+        healthScore,
+        healthTrend,
+        healthLabel,
+        healthSummary,
+        clientMood: scoreToMood(clientMoodScore),
+        teamMood: scoreToMood(teamMoodScore),
+        risk: scoreToRisk(healthScore),
         healthCalculatedAt: new Date(),
       },
     }),
   ]);
 
   return prisma.project.findUnique({
-    where: {
-      id: project.id,
-    },
+    where: { id: project.id },
   });
 }

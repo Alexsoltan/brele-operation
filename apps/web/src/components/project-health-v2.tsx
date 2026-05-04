@@ -70,6 +70,92 @@ function getRangeStart(range: Range, latestDate: Date) {
 
   return date;
 }
+
+function dayKey(value: string) {
+  return new Date(value).toISOString().slice(0, 10);
+}
+
+function aggregateHealthPointsByDay(points: HealthPoint[]) {
+  const map = new Map<string, HealthPoint>();
+
+  for (const point of points) {
+    const key = dayKey(point.date);
+    const existing = map.get(key);
+
+    map.set(key, {
+      id: existing ? `${existing.id}-${point.id}` : point.id,
+      date: `${key}T12:00:00.000Z`,
+      score: point.score,
+      delta: (existing?.delta ?? 0) + point.delta,
+      impact: (existing?.impact ?? 0) + point.impact,
+    });
+  }
+
+  return [...map.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function buildRangeChartPoints(
+  points: HealthPoint[],
+  range: Range,
+  currentScore: number,
+) {
+  const rangeEnd =
+    points.length > 0
+      ? new Date(points[points.length - 1].date)
+      : new Date();
+
+  if (range === "all") {
+    const rangeStart =
+      points.length > 0 ? new Date(points[0].date) : new Date(rangeEnd);
+
+    return {
+      rangeStart,
+      rangeEnd,
+      points:
+        points.length > 0
+          ? points
+          : [
+              {
+                id: "current",
+                date: rangeEnd.toISOString(),
+                score: currentScore,
+                delta: 0,
+                impact: 0,
+              },
+            ],
+    };
+  }
+
+  const rangeStart = getRangeStart(range, rangeEnd);
+
+  const previousPoint = [...points]
+    .reverse()
+    .find((point) => new Date(point.date) < rangeStart);
+
+  const pointsInRange = points.filter((point) => {
+    const date = new Date(point.date);
+    return date >= rangeStart && date <= rangeEnd;
+  });
+
+  const baselineScore =
+    previousPoint?.score ?? pointsInRange[0]?.score ?? currentScore;
+
+  const baselinePoint: HealthPoint = {
+    id: "baseline",
+    date: rangeStart.toISOString(),
+    score: baselineScore,
+    delta: 0,
+    impact: 0,
+  };
+
+  return {
+    rangeStart,
+    rangeEnd,
+    points: [baselinePoint, ...pointsInRange],
+  };
+}
+
+
 function buildSvgPath(points: Array<{ x: number; y: number }>) {
   if (points.length === 0) return "";
 
@@ -98,37 +184,120 @@ function buildSvgPath(points: Array<{ x: number; y: number }>) {
   return path;
 }
 
-function normalizeChartPoints(points: HealthPoint[]) {
+function normalizeChartPoints(
+  points: HealthPoint[],
+  rangeStart: Date,
+  rangeEnd: Date,
+) {
   if (points.length === 0) return [];
 
-  return points.map((point, index) => {
-    const x = points.length === 1 ? 50 : (index / (points.length - 1)) * 100;
+  const startTime = rangeStart.getTime();
+  const endTime = rangeEnd.getTime();
+  const duration = Math.max(1, endTime - startTime);
+
+  return points.map((point) => {
+    const time = new Date(point.date).getTime();
+    const x = ((time - startTime) / duration) * 100;
     const y = 100 - point.score;
 
     return {
       ...point,
-      x,
-      y,
+      x: Math.max(0, Math.min(100, x)),
+      y: Math.max(2, Math.min(98, y)),
     };
   });
 }
 
-function getDateTicks<T extends { id: string; date: string; x: number }>(
-  points: T[],
-) {
-  if (points.length <= 5) return points;
+function startOfDay(date: Date) {
+  const value = new Date(date);
+  value.setHours(0, 0, 0, 0);
+  return value;
+}
 
-  const indexes = new Set<number>();
+function addDays(date: Date, days: number) {
+  const value = new Date(date);
+  value.setDate(value.getDate() + days);
+  return value;
+}
 
-  indexes.add(0);
-  indexes.add(points.length - 1);
-  indexes.add(Math.round((points.length - 1) * 0.25));
-  indexes.add(Math.round((points.length - 1) * 0.5));
-  indexes.add(Math.round((points.length - 1) * 0.75));
+function addMonths(date: Date, months: number) {
+  const value = new Date(date);
+  value.setMonth(value.getMonth() + months);
+  return value;
+}
 
-  return [...indexes]
-    .sort((a, b) => a - b)
-    .map((index) => points[index]);
+function startOfMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function nextMonday(date: Date) {
+  const value = startOfDay(date);
+  const day = value.getDay();
+  const diff = (8 - day) % 7 || 7;
+  return addDays(value, diff);
+}
+
+function getDateTicks(range: Range, rangeStart: Date, rangeEnd: Date) {
+  const ticks: Array<{ id: string; date: string; x: number }> = [];
+
+  const startTime = rangeStart.getTime();
+  const endTime = rangeEnd.getTime();
+  const duration = Math.max(1, endTime - startTime);
+
+  function pushTick(date: Date) {
+    const x = ((date.getTime() - startTime) / duration) * 100;
+
+    if (x < 0 || x > 100) return;
+
+    ticks.push({
+      id: date.toISOString(),
+      date: date.toISOString(),
+      x,
+    });
+  }
+
+  if (range === "week") {
+    let cursor = new Date(rangeStart);
+
+    while (cursor <= rangeEnd) {
+    pushTick(cursor);
+    cursor = addDays(cursor, 1);
+  }
+
+  return ticks;
+}
+
+  if (range === "month") {
+    pushTick(rangeStart);
+
+    let cursor = nextMonday(rangeStart);
+
+    while (cursor < rangeEnd) {
+      pushTick(cursor);
+      cursor = addDays(cursor, 7);
+    }
+
+    pushTick(rangeEnd);
+
+    return ticks;
+  }
+
+  if (range === "quarter" || range === "year" || range === "all") {
+    pushTick(rangeStart);
+
+    let cursor = addMonths(startOfMonth(rangeStart), 1);
+
+    while (cursor < rangeEnd) {
+      pushTick(cursor);
+      cursor = addMonths(cursor, 1);
+    }
+
+    pushTick(rangeEnd);
+
+    return ticks;
+  }
+
+  return ticks;
 }
 
 export function ProjectHealthV2({
@@ -145,33 +314,18 @@ export function ProjectHealthV2({
   const tone = healthTone(score);
 
   const sortedPoints = useMemo(() => {
-    return [...healthPoints].sort((a, b) => a.date.localeCompare(b.date));
-  }, [healthPoints]);
+  const sorted = [...healthPoints].sort((a, b) =>
+    a.date.localeCompare(b.date),
+  );
 
-  const chartPoints = useMemo(() => {
-    if (sortedPoints.length === 0) {
-      return [
-        {
-          id: "current",
-          date: new Date().toISOString(),
-          score,
-          delta: 0,
-          impact: 0,
-        },
-      ];
-    }
+  return aggregateHealthPointsByDay(sorted);
+}, [healthPoints]);
 
-    if (range === "all") return sortedPoints;
+  const chartData = useMemo(() => {
+    return buildRangeChartPoints(sortedPoints, range, score);
+}, [range, score, sortedPoints]);
 
-    const latestDate = new Date(sortedPoints[sortedPoints.length - 1].date);
-    const from = getRangeStart(range, latestDate);
-
-    const filtered = sortedPoints.filter((point) => {
-      return new Date(point.date) >= from;
-    });
-
-    return filtered.length > 0 ? filtered : sortedPoints.slice(-1);
-  }, [range, score, sortedPoints]);
+  const chartPoints = chartData.points;
 
   const latestPoint = chartPoints[chartPoints.length - 1];
   const previousPoint = chartPoints[chartPoints.length - 2];
@@ -183,9 +337,20 @@ export function ProjectHealthV2({
         ? latestPoint.score - previousPoint.score
         : 0;
 
-  const normalizedPoints = normalizeChartPoints(chartPoints);
+  const normalizedPoints = normalizeChartPoints(
+    chartPoints,
+    chartData.rangeStart,
+    chartData.rangeEnd,
+  );
+
   const markerPoints = normalizedPoints;
-  const dateTicks = getDateTicks(normalizedPoints);
+  
+  const dateTicks = getDateTicks(
+  range,
+  chartData.rangeStart,
+  chartData.rangeEnd,
+  );
+  
   const path = buildSvgPath(normalizedPoints);
     return (
     <section className="rounded-[34px] bg-[#1f1f1f] p-5 text-white shadow-[0_24px_80px_rgba(0,0,0,0.14)]">

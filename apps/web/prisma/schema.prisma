@@ -45,6 +45,68 @@ enum ProjectChatParticipantRole {
   ignore
 }
 
+enum PromptConfigKey {
+  meeting_analysis
+  chat_daily_summary
+  signal_extraction_from_meeting
+  signal_extraction_from_chat
+  project_health_summary
+}
+
+enum SignalSource {
+  meeting
+  chat
+  manual
+}
+
+enum SignalCategory {
+  client
+  team
+  delivery
+  business
+  communication
+  process
+  opportunity
+}
+
+enum SignalType {
+  client_satisfaction
+  client_dissatisfaction
+  client_trust
+  team_confidence
+  team_demotivation
+  deadline_risk
+  scope_change
+  quality_issue
+  blocker
+  budget_risk
+  communication_gap
+  decision_made
+  escalation
+  positive_feedback
+  upsell_opportunity
+}
+
+enum SignalDirection {
+  positive
+  negative
+  neutral
+}
+
+enum SignalSeverity {
+  info
+  low
+  medium
+  high
+  critical
+}
+
+enum SignalStatus {
+  active
+  resolved
+  dismissed
+}
+
 model Workspace {
   id        String   @id @default(cuid())
   name      String
@@ -59,6 +121,8 @@ model Workspace {
   meetings              Meeting[]
   meetingTypes          MeetingType[]
   projectScoringConfigs ProjectScoringConfig[]
+  promptConfigs         PromptConfig[]
+  signalWeightConfigs   SignalWeightConfig[]
 
   @@index([deletedAt])
 }
@@ -110,6 +174,7 @@ model Project {
   healthPoints       ProjectHealthPoint[]
   projectChats       ProjectChat[]
   chatDailySummaries ChatDailySummary[]
+  signals            ProjectSignal[]
 
   @@index([workspaceId])
   @@index([deletedAt])
@@ -307,4 +372,84 @@ model ProjectChatParticipant {
   @@unique([projectChatId, telegramUserId])
   @@index([projectChatId])
   @@index([role])
+}
+
+model PromptConfig {
+  id          String @id @default(cuid())
+  workspaceId String?
+
+  key         PromptConfigKey
+  label       String
+  description String?
+  systemPrompt String
+  userPrompt   String
+  modelName    String?
+  isActive     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, key])
+  @@index([workspaceId])
+  @@index([key])
+  @@index([isActive])
+}
+
+model ProjectSignal {
+  id        String @id @default(cuid())
+  projectId String
+
+  source   SignalSource
+  sourceId String?
+
+  category  SignalCategory
+  type      SignalType
+  direction SignalDirection
+  severity  SignalSeverity
+  status    SignalStatus @default(active)
+
+  title String
+  text  String
+
+  confidence Float?
+
+  occurredAt DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([source])
+  @@index([type])
+  @@index([severity])
+  @@index([status])
+  @@index([occurredAt])
+}
+
+model SignalWeightConfig {
+  id          String @id @default(cuid())
+  workspaceId String?
+
+  type SignalType
+  weight           Float
+  clientMoodImpact Float @default(0)
+  teamMoodImpact   Float @default(0)
+  
+  label     String?
+  isActive  Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, type])
+  @@index([workspaceId])
+  @@index([type])
+  @@index([isActive])
 }

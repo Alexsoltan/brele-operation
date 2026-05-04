@@ -11,7 +11,7 @@ import {
 
 import type { Meeting, Mood, Project } from "@/lib/types";
 
-type Range = "month" | "quarter" | "year" | "all";
+type Range = "week" | "month" | "quarter" | "year" | "all";
 
 type MoodPoint = {
   id: string;
@@ -60,11 +60,165 @@ function formatShortDate(value: string) {
 function getRangeStart(range: Range, latestDate: Date) {
   const date = new Date(latestDate);
 
+  if (range === "week") date.setDate(date.getDate() - 7);
   if (range === "month") date.setMonth(date.getMonth() - 1);
   if (range === "quarter") date.setMonth(date.getMonth() - 3);
   if (range === "year") date.setFullYear(date.getFullYear() - 1);
 
   return date;
+}
+
+function startOfDay(date: Date) {
+  const value = new Date(date);
+  value.setHours(0, 0, 0, 0);
+  return value;
+}
+
+function addDays(date: Date, days: number) {
+  const value = new Date(date);
+  value.setDate(value.getDate() + days);
+  return value;
+}
+
+function addMonths(date: Date, months: number) {
+  const value = new Date(date);
+  value.setMonth(value.getMonth() + months);
+  return value;
+}
+
+function startOfMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function nextMonday(date: Date) {
+  const value = startOfDay(date);
+  const day = value.getDay();
+  const diff = (8 - day) % 7 || 7;
+  return addDays(value, diff);
+}
+
+function getDateTicks(range: Range, rangeStart: Date, rangeEnd: Date) {
+  const ticks: Array<{ id: string; date: string; x: number }> = [];
+
+  const startTime = rangeStart.getTime();
+  const endTime = rangeEnd.getTime();
+  const duration = Math.max(1, endTime - startTime);
+
+  function pushTick(date: Date) {
+    const x = ((date.getTime() - startTime) / duration) * 100;
+
+    if (x < 0 || x > 100) return;
+
+    ticks.push({
+      id: date.toISOString(),
+      date: date.toISOString(),
+      x,
+    });
+  }
+
+  if (range === "week") {
+    let cursor = new Date(rangeStart);
+
+    while (cursor <= rangeEnd) {
+      pushTick(cursor);
+      cursor = addDays(cursor, 1);
+    }
+
+    return ticks;
+  }
+
+  if (range === "month") {
+    pushTick(rangeStart);
+
+    let cursor = nextMonday(rangeStart);
+
+    while (cursor < rangeEnd) {
+      pushTick(cursor);
+      cursor = addDays(cursor, 7);
+    }
+
+    pushTick(rangeEnd);
+
+    return ticks;
+  }
+
+  pushTick(rangeStart);
+
+  let cursor = addMonths(startOfMonth(rangeStart), 1);
+
+  while (cursor < rangeEnd) {
+    pushTick(cursor);
+    cursor = addMonths(cursor, 1);
+  }
+
+  pushTick(rangeEnd);
+
+  return ticks;
+}
+
+function buildRangeMoodPoints(
+  points: MoodPoint[],
+  range: Range,
+  currentClientScore: number,
+  currentTeamScore: number,
+) {
+  const rangeEnd =
+    points.length > 0
+      ? new Date(points[points.length - 1].date)
+      : new Date();
+
+  if (range === "all") {
+    const rangeStart =
+      points.length > 0 ? new Date(points[0].date) : new Date(rangeEnd);
+
+    return {
+      rangeStart,
+      rangeEnd,
+      points:
+        points.length > 0
+          ? points
+          : [
+              {
+                id: "current",
+                date: rangeEnd.toISOString(),
+                clientScore: currentClientScore,
+                teamScore: currentTeamScore,
+              },
+            ],
+    };
+  }
+
+  const rangeStart = getRangeStart(range, rangeEnd);
+
+  // 👉 ВАЖНО: ищем точку ДО диапазона
+  const previousPoint = [...points]
+    .reverse()
+    .find((point) => new Date(point.date) < rangeStart);
+
+  const pointsInRange = points.filter((point) => {
+    const date = new Date(point.date);
+    return date >= rangeStart && date <= rangeEnd;
+  });
+
+  // 👉 baseline (главное исправление бага)
+  const baselinePoint: MoodPoint = {
+    id: "baseline",
+    date: rangeStart.toISOString(),
+    clientScore:
+      previousPoint?.clientScore ??
+      pointsInRange[0]?.clientScore ??
+      currentClientScore,
+    teamScore:
+      previousPoint?.teamScore ??
+      pointsInRange[0]?.teamScore ??
+      currentTeamScore,
+  };
+
+  return {
+    rangeStart,
+    rangeEnd,
+    points: [baselinePoint, ...pointsInRange],
+  };
 }
 
 function buildSvgPath(points: Array<{ x: number; y: number }>) {
@@ -94,16 +248,23 @@ function normalizeLinePoints(
   points: MoodPoint[],
   field: "clientScore" | "teamScore",
   yOffset: number,
+  rangeStart: Date,
+  rangeEnd: Date,
 ) {
   if (points.length === 0) return [];
 
-  return points.map((point, index) => {
-    const x = points.length === 1 ? 50 : (index / (points.length - 1)) * 100;
+  const startTime = rangeStart.getTime();
+  const endTime = rangeEnd.getTime();
+  const duration = Math.max(1, endTime - startTime);
+
+  return points.map((point) => {
+    const time = new Date(point.date).getTime();
+    const x = ((time - startTime) / duration) * 100;
     const y = 100 - point[field] + yOffset;
 
     return {
       ...point,
-      x,
+      x: Math.max(0, Math.min(100, x)),
       y: Math.max(2, Math.min(98, y)),
     };
   });
@@ -141,16 +302,10 @@ export function ProjectMoodV2({
       ];
     }
 
-    if (range === "all") return points;
-
-    const latestDate = new Date(points[points.length - 1].date);
-    const from = getRangeStart(range, latestDate);
-
-    const filtered = points.filter((point) => new Date(point.date) >= from);
-
-    return filtered.length > 0 ? filtered : points.slice(-1);
-  }, [project.clientMood, project.teamMood, range, sortedMeetings]);
-
+    return points;
+    
+  }, [project.clientMood, project.teamMood, sortedMeetings]);
+  
   const latest = meetings[0];
   const previous = meetings[1];
 
@@ -160,14 +315,40 @@ export function ProjectMoodV2({
   const clientCurrent = moodScore(clientMood);
   const teamCurrent = moodScore(teamMood);
 
+  const chartData = buildRangeMoodPoints(
+    moodPoints,
+    range,
+    clientCurrent,
+    teamCurrent,
+  );
+
+  const chartMoodPoints = chartData.points;
+  const rangeStart = chartData.rangeStart;
+  const rangeEnd = chartData.rangeEnd;
+
+  const dateTicks = getDateTicks(range, rangeStart, rangeEnd);
+
   const clientPrevious = moodScore(previous?.clientMood ?? "neutral");
   const teamPrevious = moodScore(previous?.teamMood ?? "neutral");
 
   const clientDelta = clientCurrent - clientPrevious;
   const teamDelta = teamCurrent - teamPrevious;
 
-  const clientLinePoints = normalizeLinePoints(moodPoints, "clientScore", -1.8);
-  const teamLinePoints = normalizeLinePoints(moodPoints, "teamScore", 1.8);
+  const clientLinePoints = normalizeLinePoints(
+    chartMoodPoints,
+    "clientScore",
+    -1.8,
+    rangeStart,
+    rangeEnd,
+  );
+
+  const teamLinePoints = normalizeLinePoints(
+    chartMoodPoints,
+    "teamScore",
+    1.8,
+    rangeStart,
+    rangeEnd,
+  );
 
   const clientPath = buildSvgPath(clientLinePoints);
   const teamPath = buildSvgPath(teamLinePoints);
@@ -262,6 +443,7 @@ export function ProjectMoodV2({
 
             <div className="inline-flex rounded-full bg-white/10 p-1 text-xs font-medium text-white/55">
               {[
+                ["week", "Неделя"],  
                 ["month", "Месяц"],
                 ["quarter", "Квартал"],
                 ["year", "Год"],
@@ -339,17 +521,25 @@ export function ProjectMoodV2({
               ))}
             </div>
 
-            <div className="absolute bottom-0 left-6 right-6 flex justify-between text-[12px] text-white/35">
-              {moodPoints.length <= 1 ? (
-                <span>{formatShortDate(moodPoints[0].date)}</span>
-              ) : (
-                <>
-                  <span>{formatShortDate(moodPoints[0].date)}</span>
-                  <span>
-                    {formatShortDate(moodPoints[moodPoints.length - 1].date)}
-                  </span>
-                </>
-              )}
+            <div className="absolute bottom-0 left-6 right-6 h-5">
+              {dateTicks.map((point, index) => (
+                <span
+                  key={`${point.id}-${index}`}
+                  className={[
+                    "absolute top-0 whitespace-nowrap text-[12px] text-white/35",
+                    index === 0
+                      ? "translate-x-0"
+                      : index === dateTicks.length - 1
+                        ? "-translate-x-full"
+                        : "-translate-x-1/2",
+                  ].join(" ")}
+                  style={{
+                    left: `${point.x}%`,
+                  }}
+                >
+                  {formatShortDate(point.date)}
+                </span>
+              ))}
             </div>
           </div>
         </div>

@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "SignalWeightConfig" ADD COLUMN     "clientMoodImpact" DOUBLE PRECISION NOT NULL DEFAULT 0,
+ADD COLUMN     "teamMoodImpact" DOUBLE PRECISION NOT NULL DEFAULT 0;

@@ -1,40 +1,62 @@
 "use client";
 
-import { AlertTriangle, CircleDot, MessageCircle, TrendingUp } from "lucide-react";
+import {
+  AlertTriangle,
+  Bot,
+  CircleDot,
+  MessageCircle,
+  TrendingUp,
+  User,
+} from "lucide-react";
 
 import { formatMeetingDate } from "@/lib/types";
+import type { ProjectSignal } from "@/lib/types";
 
-type ProjectSignal = {
-  text: string;
-  type: "risk" | "warning" | "opportunity";
-  date: string;
-  sourceLabel: string;
-};
+function signalIcon(signal: ProjectSignal) {
+  if (signal.severity === "critical" || signal.severity === "high") {
+    return AlertTriangle;
+  }
 
-function signalIcon(type: ProjectSignal["type"]) {
-  if (type === "risk") return AlertTriangle;
-  if (type === "warning") return CircleDot;
-  return TrendingUp;
+  if (signal.direction === "positive") {
+    return TrendingUp;
+  }
+
+  return CircleDot;
 }
 
-function signalTone(type: ProjectSignal["type"]) {
-  if (type === "risk") {
+function sourceIcon(source: ProjectSignal["source"]) {
+  if (source === "chat") return MessageCircle;
+  if (source === "manual") return User;
+  return Bot;
+}
+
+function sourceLabel(source: ProjectSignal["source"]) {
+  if (source === "chat") return "Чат";
+  if (source === "manual") return "Ручной";
+  return "Встреча";
+}
+
+function signalTone(signal: ProjectSignal) {
+  if (signal.severity === "critical" || signal.severity === "high") {
     return {
-      icon: "text-[#9f2a2a]",
       marker: "bg-[#ffd7d7] text-[#7f1d1d]",
     };
   }
 
-  if (type === "warning") {
+  if (signal.severity === "medium") {
     return {
-      icon: "text-[#8a6a00]",
       marker: "bg-[#fff3a3] text-[#6f5200]",
     };
   }
 
+  if (signal.direction === "positive") {
+    return {
+      marker: "bg-[#c9f5d3] text-[#1f5f34]",
+    };
+  }
+
   return {
-    icon: "text-[#2f7a45]",
-    marker: "bg-[#c9f5d3] text-[#1f5f34]",
+    marker: "bg-gray-100 text-gray-600",
   };
 }
 
@@ -51,23 +73,24 @@ export function ProjectSignalsV2({ signals }: { signals: ProjectSignal[] }) {
             Значимых сигналов пока нет.
           </div>
         ) : (
-          signals.map((signal, index) => {
-            const Icon = signalIcon(signal.type);
-            const tone = signalTone(signal.type);
+          signals.map((signal) => {
+            const Icon = signalIcon(signal);
+            const SourceIcon = sourceIcon(signal.source);
+            const tone = signalTone(signal);
 
             return (
               <div
-                key={`${signal.text}-${index}`}
+                key={signal.id}
                 className="rounded-[24px] border border-gray-200 bg-white p-4"
               >
                 <div className="mb-3 flex items-center gap-2">
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-black px-2.5 py-1 text-xs font-semibold text-white">
-                    <MessageCircle size={12} />
-                    {signal.sourceLabel}
+                    <SourceIcon size={12} />
+                    {sourceLabel(signal.source)}
                   </span>
 
                   <span className="text-xs font-semibold text-gray-500">
-                    {formatMeetingDate(signal.date)}
+                    {formatMeetingDate(signal.occurredAt)}
                   </span>
 
                   <span

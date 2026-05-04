@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireCanManageMeetings, requireCanRead } from "@/lib/auth";
 import { recalculateProjectHealth } from "@/lib/recalculate-project-health";
+import { extractSignalsFromMeeting } from "@/lib/signal-extractors";
 
 export async function GET(
   _req: NextRequest,
@@ -86,6 +87,20 @@ export async function PATCH(
       type: true,
     },
   });
+
+    if (
+      (meeting.analysisStatus === "analyzed" ||
+        meeting.analysisStatus === "manual") &&
+      Array.isArray(meeting.highlights) &&
+      meeting.highlights.length > 0
+    ) {
+      await extractSignalsFromMeeting({
+        ...meeting,
+        date: meeting.date.toISOString(),
+        analyzedAt: meeting.analyzedAt?.toISOString() ?? null,
+        project: meeting.project,
+      });
+    }
 
   await recalculateProjectHealth(existingMeeting.projectId, user.workspaceId);
 

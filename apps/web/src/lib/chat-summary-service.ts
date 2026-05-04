@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { Mood, Risk } from "@/lib/types";
+import { extractSignalsFromChatSummary } from "@/lib/signal-extractors";
 
 type ChatParticipantForSummary = {
   telegramUserId: string;
@@ -127,7 +128,7 @@ export async function generateDailyChatSummaries() {
       continue;
     }
 
-    await prisma.chatDailySummary.upsert({
+    const chatSummary = await prisma.chatDailySummary.upsert({
       where: {
         projectId_date: {
           projectId: project.id,
@@ -151,5 +152,7 @@ export async function generateDailyChatSummaries() {
         risk: normalizeRisk(data.risk),
       },
     });
+
+    await extractSignalsFromChatSummary(chatSummary);
   }
 }

@@ -1,55 +1,129 @@
-import type { Meeting } from "./types";
+import { prisma } from "@/lib/prisma";
+import type {
+  CreateProjectSignalInput,
+  ProjectSignal,
+  SignalDirection,
+  SignalSeverity,
+} from "@/lib/types";
+import type { ProjectSignal as PrismaProjectSignal } from "@/generated/prisma/client";
 
-export type ProjectSignal = {
-  text: string;
-  type: "risk" | "warning" | "opportunity";
-  date: string;
-};
-
-function detectSignalType(text: string): ProjectSignal["type"] {
-  const lower = text.toLowerCase();
-
-  if (
-    lower.includes("недоволь") ||
-    lower.includes("проблем") ||
-    lower.includes("риск") ||
-    lower.includes("демотив")
-  ) {
-    return "risk";
-  }
-
-  if (
-    lower.includes("вопрос") ||
-    lower.includes("сомнен") ||
-    lower.includes("обсужд")
-  ) {
-    return "warning";
-  }
-
-  return "opportunity";
+/**
+ * Нормализация сигнала перед записью
+ */
+function normalizeSignalInput(input: CreateProjectSignalInput) {
+  return {
+    ...input,
+    status: input.status ?? "active",
+    confidence: input.confidence ?? null,
+    occurredAt: new Date(input.occurredAt),
+  };
 }
 
-export function extractProjectSignals(
-  meetings: Meeting[],
-  limit = 5,
-): ProjectSignal[] {
-  const signals: ProjectSignal[] = [];
-
-  meetings.slice(0, 10).forEach((meeting) => {
-    meeting.highlights.forEach((highlight) => {
-      signals.push({
-        text: highlight,
-        type: detectSignalType(highlight),
-        date: meeting.date,
-      });
-    });
+/**
+ * Простая дедупликация сигналов
+ * (защита от дублей от AI/повторного анализа)
+ */
+async function isDuplicateSignal(input: CreateProjectSignalInput) {
+  const existing = await prisma.projectSignal.findFirst({
+    where: {
+      projectId: input.projectId,
+      type: input.type,
+      text: input.text,
+      occurredAt: new Date(input.occurredAt),
+    },
   });
 
-  // приоритет: risk → warning → opportunity
-  return signals
-    .sort((a, b) => {
-      const priority = { risk: 3, warning: 2, opportunity: 1 };
-      return priority[b.type] - priority[a.type];
-    })
-    .slice(0, limit);
+  return Boolean(existing);
+}
+export async function createProjectSignal(
+  input: CreateProjectSignalInput,
+): Promise<ProjectSignal | null> {
+  const normalized = normalizeSignalInput(input);
+
+  const duplicate = await isDuplicateSignal(input);
+
+  if (duplicate) {
+    return null;
+  }
+
+  const signal = await prisma.projectSignal.create({
+    data: normalized,
+  });
+
+  return {
+    ...signal,
+    occurredAt: signal.occurredAt.toISOString(),
+    createdAt: signal.createdAt.toISOString(),
+    updatedAt: signal.updatedAt.toISOString(),
+  };
+}
+export async function getProjectSignals(projectId: string) {
+  const signals = await prisma.projectSignal.findMany({
+    where: {
+      projectId,
+      status: "active",
+    },
+    orderBy: {
+      occurredAt: "desc",
+    },
+    take: 20,
+  });
+
+  return signals.map((s: PrismaProjectSignal) => ({
+    ...s,
+    occurredAt: s.occurredAt.toISOString(),
+    createdAt: s.createdAt.toISOString(),
+    updatedAt: s.updatedAt.toISOString(),
+  }));
+}
+export function getSignalSeverityFromText(text: string): SignalSeverity {
+  const t = text.toLowerCase();
+
+  if (
+    t.includes("срыв") ||
+    t.includes("критично") ||
+    t.includes("эскалация")
+  ) {
+    return "critical";
+  }
+
+  if (
+    t.includes("риск") ||
+    t.includes("проблем") ||
+    t.includes("блокер")
+  ) {
+    return "high";
+  }
+
+  if (
+    t.includes("вопрос") ||
+    t.includes("сомнение")
+  ) {
+    return "medium";
+  }
+
+  return "low";
+}
+export function getSignalDirectionFromText(
+  text: string,
+): SignalDirection {
+  const t = text.toLowerCase();
+
+  if (
+    t.includes("доволен") ||
+    t.includes("хорошо") ||
+    t.includes("отлично")
+  ) {
+    return "positive";
+  }
+
+  if (
+    t.includes("недоволен") ||
+    t.includes("плохо") ||
+    t.includes("проблем")
+  ) {
+    return "negative";
+  }
+
+  return "neutral";
 }
