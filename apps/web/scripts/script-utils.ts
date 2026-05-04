@@ -59,6 +59,13 @@ export function getYesterday() {
   return date;
 }
 
+export function getToday() {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+
+  return date;
+}
+
 export function getStringArg(name: string) {
   const prefix = `--${name}=`;
   const explicit = process.argv.find((arg) => arg.startsWith(prefix));

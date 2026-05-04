@@ -1,7 +1,7 @@
 import {
   getDateArg,
   getStringArg,
-  getYesterday,
+  getToday,
   loadScriptEnv,
 } from "./script-utils";
 
@@ -13,7 +13,7 @@ async function main() {
   );
   const { prisma } = await import("../src/lib/prisma");
 
-  const date = getDateArg(getYesterday());
+  const date = getDateArg(getToday());
   const workspaceId = getStringArg("workspace-id");
   const projectId = getStringArg("project-id");
 

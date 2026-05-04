@@ -1,70 +1,125 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, RotateCcw, Terminal } from "lucide-react";
+import { AlertTriangle, CalendarDays, RotateCcw, Terminal } from "lucide-react";
 
 type ScriptResult = {
   ok: boolean;
   error?: string;
+  date?: string;
   processedProjects?: number;
   totalProjects?: number;
   totalDays?: number;
   deletedSignals?: number;
   createdSignals?: number;
+  resetProjects?: number;
+  chatSummaries?: {
+    summariesCreated?: number;
+    summariesUpdated?: number;
+    failedProjects?: number;
+  };
+  projectSignals?: {
+    totalProjects?: number;
+    processedProjects?: number;
+    failedProjects?: number;
+    createdSignals?: number;
+  };
   logs?: string[];
 };
+
+function getTodayInputValue() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 export default function ScriptsSettingsPage() {
   const [loading, setLoading] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   const [result, setResult] = useState<ScriptResult | null>(null);
+  const [date, setDate] = useState(getTodayInputValue);
 
-  async function handleRun() {
-    const confirmed = window.confirm(
-      "Удалить все автоматические сигналы и пересоздать их заново?",
+  async function parseScriptResponse(response: Response): Promise<ScriptResult> {
+    const text = await response.text();
+
+    try {
+      return JSON.parse(text) as ScriptResult;
+    } catch {
+      return {
+        ok: false,
+        error: `Сервер вернул не JSON: HTTP ${response.status}`,
+        logs: [
+          `❌ Сервер вернул не JSON: HTTP ${response.status}`,
+          text.slice(0, 500),
+        ],
+      };
+    }
+  }
+
+  function applyScriptResult(data: ScriptResult) {
+    setResult(data);
+    setLogs(
+      Array.isArray(data.logs)
+        ? data.logs
+        : data.error
+          ? [`❌ ${data.error}`]
+          : ["Готово"],
     );
+  }
 
-    if (!confirmed) return;
+  async function runScript(
+    label: string,
+    request: () => Promise<Response>,
+    confirmText?: string,
+  ) {
+    if (confirmText && !window.confirm(confirmText)) return;
 
     setLoading(true);
-    setLogs(["🚀 Запускаем скрипт..."]);
+    setLogs([`🚀 ${label}`]);
     setResult(null);
 
     try {
-      const response = await fetch("/api/ai-analysis/recalculate", {
-        method: "POST",
-      });
-
-      const text = await response.text();
-      let data: ScriptResult;
-
-      try {
-        data = JSON.parse(text) as ScriptResult;
-      } catch {
-        data = {
-          ok: false,
-          error: `Сервер вернул не JSON: HTTP ${response.status}`,
-          logs: [
-            `❌ Сервер вернул не JSON: HTTP ${response.status}`,
-            text.slice(0, 500),
-          ],
-        };
-      }
-
-      setResult(data);
-      setLogs(
-        Array.isArray(data.logs)
-          ? data.logs
-          : data.error
-            ? [`❌ ${data.error}`]
-            : ["Готово"],
-      );
+      const response = await request();
+      const data = await parseScriptResponse(response);
+      applyScriptResult(data);
     } catch (error) {
       setResult({ ok: false });
       setLogs(["❌ Ошибка запуска скрипта", String(error)]);
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleRunDailyOperations() {
+    await runScript("Запускаем дневную обработку...", () =>
+      fetch("/api/daily-operations/run", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ date }),
+      }),
+    );
+  }
+
+  async function handleResetHealth() {
+    await runScript(
+      "Сбрасываем показатели проектов...",
+      () =>
+        fetch("/api/daily-operations/reset-health", {
+          method: "POST",
+        }),
+      "Сбросить здоровье, риск и настроения всех проектов к базовому уровню?",
+    );
+  }
+
+  async function handleRun() {
+    await runScript(
+      "Запускаем полный rebuild...",
+      () =>
+        fetch("/api/ai-analysis/recalculate", {
+          method: "POST",
+        }),
+      "Удалить все автоматические сигналы и пересоздать их заново?",
+    );
   }
 
   return (
@@ -83,6 +138,48 @@ export default function ScriptsSettingsPage() {
           Временный раздел для отладки системных операций. Эти действия могут
           массово менять данные, поэтому запускаем их вручную и осознанно.
         </p>
+      </section>
+
+      <section className="rounded-[34px] bg-[#1f1f1f] p-6 text-white shadow-[0_24px_80px_rgba(0,0,0,0.12)]">
+        <div className="mb-6 flex items-start justify-between gap-6">
+          <div>
+            <div className="mb-3 inline-flex rounded-full bg-[#d9ff3f] px-3 py-1 text-xs font-bold text-black">
+              Daily operations
+            </div>
+
+            <h2 className="text-2xl font-semibold tracking-[-0.04em]">
+              Обработать день
+            </h2>
+
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-white/55">
+              Скрипт создаст summary чатов за выбранную дату, затем создаст
+              сигналы и пересчитает здоровье проекта, настроение клиента и
+              команды.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleRunDailyOperations}
+            disabled={loading || !date}
+            className="inline-flex items-center gap-2 rounded-2xl bg-[#d9ff3f] px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <CalendarDays size={16} />
+            {loading ? "Выполняется..." : "Запустить за дату"}
+          </button>
+        </div>
+
+        <div className="rounded-[24px] bg-white/8 p-4">
+          <label className="block text-xs font-bold uppercase tracking-wide text-white/35">
+            Дата обработки
+          </label>
+          <input
+            type="date"
+            value={date}
+            onChange={(event) => setDate(event.target.value)}
+            className="mt-2 h-12 rounded-2xl border border-white/10 bg-white px-4 text-sm font-semibold text-black outline-none"
+          />
+        </div>
       </section>
 
       <section className="rounded-[34px] bg-[#1f1f1f] p-6 text-white shadow-[0_24px_80px_rgba(0,0,0,0.12)]">
@@ -120,6 +217,35 @@ export default function ScriptsSettingsPage() {
         </div>
       </section>
 
+      <section className="rounded-[34px] border border-[#ffd7d7] bg-white p-6 shadow-[0_24px_80px_rgba(0,0,0,0.06)]">
+        <div className="flex items-start justify-between gap-6">
+          <div>
+            <div className="mb-3 inline-flex rounded-full bg-[#ffd7d7] px-3 py-1 text-xs font-bold text-[#7f1d1d]">
+              Debug reset
+            </div>
+
+            <h2 className="text-2xl font-semibold tracking-[-0.04em] text-gray-950">
+              Сбросить показатели проектов
+            </h2>
+
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
+              Вернёт здоровье проектов к 100, риск к low, настроение клиента и
+              команды к neutral, а точки графика здоровья удалит.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleResetHealth}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-2xl bg-[#ffd7d7] px-4 py-2.5 text-sm font-semibold text-[#7f1d1d] transition hover:bg-[#ffbcbc] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <RotateCcw size={16} className={loading ? "animate-spin" : ""} />
+            Сбросить
+          </button>
+        </div>
+      </section>
+
       <section className="rounded-[34px] border border-gray-200 bg-white p-6 shadow-[0_24px_80px_rgba(0,0,0,0.06)]">
         <div className="mb-4 flex items-center justify-between gap-4">
           <div>
@@ -145,7 +271,15 @@ export default function ScriptsSettingsPage() {
             <div className="rounded-2xl bg-[#f3f3f1] p-4">
               <div className="text-xs text-gray-500">Проектов</div>
               <div className="mt-1 text-2xl font-semibold">
-                {result.processedProjects ?? 0}/{result.totalProjects ?? 0}
+                {result.projectSignals?.processedProjects ??
+                  result.processedProjects ??
+                  result.resetProjects ??
+                  0}
+                /
+                {result.projectSignals?.totalProjects ??
+                  result.totalProjects ??
+                  result.resetProjects ??
+                  0}
               </div>
             </div>
 
@@ -166,7 +300,9 @@ export default function ScriptsSettingsPage() {
             <div className="rounded-2xl bg-[#f3f3f1] p-4">
               <div className="text-xs text-gray-500">Создано сигналов</div>
               <div className="mt-1 text-2xl font-semibold">
-                {result.createdSignals ?? 0}
+                {result.projectSignals?.createdSignals ??
+                  result.createdSignals ??
+                  0}
               </div>
             </div>
 

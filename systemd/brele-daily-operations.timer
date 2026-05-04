@@ -1,8 +1,8 @@
 [Unit]
-Description=Run Brele Operations daily jobs after midnight
+Description=Run Brele Operations daily jobs at 23:30 server time
 
 [Timer]
-OnCalendar=*-*-* 00:05:00
+OnCalendar=*-*-* 23:30:00
 Persistent=true
 Unit=brele-daily-operations.service
 
