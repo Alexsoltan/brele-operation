@@ -31,6 +31,8 @@ export async function POST(req: NextRequest) {
   const name = String(body?.name ?? "").trim();
   const description = String(body?.description ?? "").trim();
   const prompt = String(body?.prompt ?? "").trim();
+  const hasClient =
+    typeof body?.hasClient === "boolean" ? body.hasClient : true;
 
   if (!name) {
     return NextResponse.json(
@@ -53,6 +55,7 @@ export async function POST(req: NextRequest) {
       slug: `${slugify(name)}-${Date.now()}`,
       description: description || null,
       prompt,
+      hasClient,
       isDefault: false,
     },
   });

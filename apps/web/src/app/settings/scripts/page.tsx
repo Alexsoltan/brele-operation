@@ -285,8 +285,8 @@ export default function ScriptsSettingsPage() {
       <section className="overflow-hidden rounded-[34px] bg-[#1f1f1f] p-6 text-white shadow-[0_24px_80px_rgba(0,0,0,0.12)]">
         <div className="flex items-start justify-between gap-6">
           <div>
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-[#ffd7d7] px-3 py-1 text-xs font-bold text-[#7f1d1d]">
-              <AlertTriangle size={14} />
+            <div className="mb-3 inline-flex h-6 items-center gap-2 rounded-full bg-[#ffd7d7] px-3 text-xs font-bold text-[#7f1d1d]">
+              <AlertTriangle size={13} />
               Danger Zone
             </div>
 
@@ -294,16 +294,10 @@ export default function ScriptsSettingsPage() {
               Системные скрипты
             </h1>
 
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-white/55">
-              Ручной запуск операций, которые массово меняют данные. Скрипты
-              выполняются на сервере в фоне, а эта страница показывает статус,
-              выбранные параметры и лог выполнения.
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-white/55">
+              Ручной запуск серверных операций, которые массово меняют данные.
+              Страница показывает статус, выбранные параметры и лог выполнения.
             </p>
-          </div>
-
-          <div className="hidden rounded-[26px] bg-white/8 p-4 text-sm leading-6 text-white/60 lg:block lg:max-w-xs">
-            Одновременно запускается только одна операция. Опасные действия
-            требуют подтверждения.
           </div>
         </div>
       </section>

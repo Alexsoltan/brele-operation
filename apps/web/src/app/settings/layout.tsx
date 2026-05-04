@@ -1,24 +1,33 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Tabs } from "@/components/ui-tabs";
 
 const tabs = [
   {
+    key: "/settings/signal",
     label: "Сигналы",
     href: "/settings/signal",
   },
   {
+    key: "/settings/ai-analysis",
     href: "/settings/ai-analysis",
     label: "AI-анализ",
   },
   {
+    key: "/settings/meeting-types",
     label: "Типы встреч",
     href: "/settings/meeting-types",
   },
   {
+    key: "/settings/scripts",
     href: "/settings/scripts",
     label: "Скрипты",
+  },
+  {
+    key: "/settings/users",
+    href: "/settings/users",
+    label: "Пользователи",
   },
 ];
 
@@ -28,6 +37,7 @@ export default function SettingsLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const activePath = pathname ?? "/settings/signal";
 
   return (
     <div className="space-y-6">
@@ -41,26 +51,7 @@ export default function SettingsLayout({
         </p>
       </div>
 
-      <div className="flex gap-2 rounded-3xl border border-gray-200 bg-white p-2">
-        {tabs.map((tab) => {
-          const isActive = pathname === tab.href;
-
-          return (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              className={[
-                "rounded-2xl px-4 py-2 text-sm font-medium transition",
-                isActive
-                  ? "bg-black text-white"
-                  : "text-gray-500 hover:bg-gray-50 hover:text-black",
-              ].join(" ")}
-            >
-              {tab.label}
-            </Link>
-          );
-        })}
-      </div>
+      <Tabs items={tabs} value={activePath} />
 
       {children}
     </div>
