@@ -42,6 +42,8 @@ type ScriptRun = {
   finishedAt?: string | null;
 };
 
+type ScriptKind = "daily_operations" | "signals_rebuild" | "reset_health";
+
 function getTodayInputValue() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -70,7 +72,7 @@ function getStatusClassName(result: ScriptResult) {
 }
 
 export default function ScriptsSettingsPage() {
-  const [loading, setLoading] = useState(false);
+  const [activeKind, setActiveKind] = useState<ScriptKind | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
   const [result, setResult] = useState<ScriptResult | null>(null);
   const [date, setDate] = useState(getTodayInputValue);
@@ -127,13 +129,13 @@ export default function ScriptsSettingsPage() {
 
   async function startScriptRun(
     label: string,
-    kind: string,
+    kind: ScriptKind,
     input?: Record<string, unknown>,
     confirmText?: string,
   ) {
     if (confirmText && !window.confirm(confirmText)) return;
 
-    setLoading(true);
+    setActiveKind(kind);
     setLogs([`🚀 ${label}`]);
     setResult(null);
     setActiveRunId(null);
@@ -163,7 +165,7 @@ export default function ScriptsSettingsPage() {
       setResult({ ok: false, status: "failed" });
       setLogs(["❌ Ошибка запуска скрипта", String(error)]);
     } finally {
-      setLoading(false);
+      setActiveKind(null);
     }
   }
 
@@ -234,11 +236,13 @@ export default function ScriptsSettingsPage() {
           <button
             type="button"
             onClick={handleRunDailyOperations}
-            disabled={loading || !date}
+            disabled={activeKind !== null || !date}
             className="inline-flex items-center gap-2 rounded-2xl bg-[#d9ff3f] px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
           >
             <CalendarDays size={16} />
-            {loading ? "Выполняется..." : "Запустить за дату"}
+            {activeKind === "daily_operations"
+              ? "Выполняется..."
+              : "Запустить за дату"}
           </button>
         </div>
 
@@ -281,11 +285,16 @@ export default function ScriptsSettingsPage() {
           <button
             type="button"
             onClick={handleRun}
-            disabled={loading}
+            disabled={activeKind !== null}
             className="inline-flex items-center gap-2 rounded-2xl bg-[#ffd7d7] px-4 py-2.5 text-sm font-semibold text-[#7f1d1d] transition hover:bg-[#ffbcbc] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <RotateCcw size={16} className={loading ? "animate-spin" : ""} />
-            {loading ? "Выполняется..." : "Запустить"}
+            <RotateCcw
+              size={16}
+              className={
+                activeKind === "signals_rebuild" ? "animate-spin" : ""
+              }
+            />
+            {activeKind === "signals_rebuild" ? "Выполняется..." : "Запустить"}
           </button>
         </div>
       </section>
@@ -310,11 +319,14 @@ export default function ScriptsSettingsPage() {
           <button
             type="button"
             onClick={handleResetHealth}
-            disabled={loading}
+            disabled={activeKind !== null}
             className="inline-flex items-center gap-2 rounded-2xl bg-[#ffd7d7] px-4 py-2.5 text-sm font-semibold text-[#7f1d1d] transition hover:bg-[#ffbcbc] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <RotateCcw size={16} className={loading ? "animate-spin" : ""} />
-            Сбросить
+            <RotateCcw
+              size={16}
+              className={activeKind === "reset_health" ? "animate-spin" : ""}
+            />
+            {activeKind === "reset_health" ? "Выполняется..." : "Сбросить"}
           </button>
         </div>
       </section>
