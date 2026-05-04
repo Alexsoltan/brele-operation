@@ -3,12 +3,17 @@
 import type { ReactNode } from "react";
 import { useState } from "react";
 import {
-  Activity,
   AlertTriangle,
   CalendarDays,
   RotateCcw,
   Terminal,
 } from "lucide-react";
+
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import {
+  getLocalDateInputValue,
+  UiDatePicker,
+} from "@/components/ui-date-picker";
 
 type ScriptResult = {
   ok: boolean;
@@ -51,9 +56,15 @@ type ScriptRun = {
 
 type ScriptKind = "daily_operations" | "signals_rebuild" | "reset_health";
 
-function getTodayInputValue() {
-  return new Date().toISOString().slice(0, 10);
-}
+type PendingConfirmation = {
+  label: string;
+  kind: ScriptKind;
+  input?: Record<string, unknown>;
+  title: string;
+  description: ReactNode;
+  confirmText: string;
+  loadingText: string;
+};
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -94,24 +105,24 @@ function ScriptPanel({
   action: ReactNode;
 }) {
   return (
-    <section className="rounded-[28px] border border-white/10 bg-[#1f1f1f] p-6 text-white shadow-[0_24px_80px_rgba(0,0,0,0.12)]">
+    <section className="rounded-[28px] border border-gray-200 bg-white p-5 shadow-[0_24px_80px_rgba(0,0,0,0.06)]">
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#ffb4b4]/20 bg-[#ffd7d7]/10 px-3 py-1 text-xs font-bold text-[#ffd7d7]">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#ffd7d7] px-3 py-1 text-xs font-bold text-[#7f1d1d]">
             <span className="h-1.5 w-1.5 rounded-full bg-[#ff6b6b]" />
             {eyebrow}
           </div>
 
-          <h2 className="text-2xl font-semibold tracking-[-0.04em]">
+          <h2 className="text-2xl font-semibold tracking-[-0.04em] text-gray-950">
             {title}
           </h2>
 
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-white/55">
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
             {description}
           </p>
 
           {details ? (
-            <p className="mt-4 max-w-2xl border-l border-white/15 pl-4 text-sm leading-6 text-white/45">
+            <p className="mt-4 max-w-2xl border-l border-gray-200 pl-4 text-sm leading-6 text-gray-400">
               {details}
             </p>
           ) : null}
@@ -129,8 +140,10 @@ export default function ScriptsSettingsPage() {
   const [activeKind, setActiveKind] = useState<ScriptKind | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
   const [result, setResult] = useState<ScriptResult | null>(null);
-  const [date, setDate] = useState(getTodayInputValue);
+  const [date, setDate] = useState(getLocalDateInputValue);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
+  const [pendingConfirmation, setPendingConfirmation] =
+    useState<PendingConfirmation | null>(null);
 
   async function parseJsonResponse<T>(response: Response): Promise<T> {
     const text = await response.text();
@@ -185,10 +198,7 @@ export default function ScriptsSettingsPage() {
     label: string,
     kind: ScriptKind,
     input?: Record<string, unknown>,
-    confirmText?: string,
   ) {
-    if (confirmText && !window.confirm(confirmText)) return;
-
     setActiveKind(kind);
     setLogs([`🚀 ${label}`]);
     setResult(null);
@@ -231,55 +241,69 @@ export default function ScriptsSettingsPage() {
     );
   }
 
-  async function handleResetHealth() {
-    await startScriptRun(
-      "Сбрасываем показатели проектов...",
-      "reset_health",
-      {},
-      "Сбросить здоровье, риск и настроения всех проектов к базовому уровню?",
-    );
+  function handleResetHealth() {
+    setPendingConfirmation({
+      label: "Сбрасываем показатели проектов...",
+      kind: "reset_health",
+      input: {},
+      title: "Сбросить показатели проектов?",
+      description:
+        "Здоровье проектов вернется к 100, риск к low, настроение клиента и команды к neutral. Точки графика здоровья будут удалены.",
+      confirmText: "Сбросить",
+      loadingText: "Сбрасываем...",
+    });
   }
 
-  async function handleRun() {
+  function handleRun() {
+    setPendingConfirmation({
+      label: "Запускаем полный rebuild...",
+      kind: "signals_rebuild",
+      input: {},
+      title: "Пересоздать автоматические сигналы?",
+      description:
+        "Автоматические сигналы из встреч и чатов будут удалены и созданы заново по актуальным prompt и справочнику типов. Ручные сигналы менеджера останутся.",
+      confirmText: "Пересоздать",
+      loadingText: "Запускаем...",
+    });
+  }
+
+  async function confirmPendingRun() {
+    if (!pendingConfirmation) return;
+
+    const confirmation = pendingConfirmation;
+    setPendingConfirmation(null);
+
     await startScriptRun(
-      "Запускаем полный rebuild...",
-      "signals_rebuild",
-      {},
-      "Удалить все автоматические сигналы и пересоздать их заново?",
+      confirmation.label,
+      confirmation.kind,
+      confirmation.input,
     );
   }
 
   return (
     <div className="space-y-6">
-      <section className="overflow-hidden rounded-[28px] border border-[#2b2b2b] bg-[#151515] text-white shadow-[0_24px_80px_rgba(0,0,0,0.14)]">
-        <div className="h-1 bg-[#ff6b6b]" />
-        <div className="grid gap-6 p-6 lg:grid-cols-[1fr_280px] lg:items-end">
+      <section className="overflow-hidden rounded-[34px] bg-[#1f1f1f] p-6 text-white shadow-[0_24px_80px_rgba(0,0,0,0.12)]">
+        <div className="flex items-start justify-between gap-6">
           <div>
-            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#ffb4b4]/20 bg-[#ffd7d7]/10 px-3 py-1 text-xs font-bold text-[#ffd7d7]">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-[#ffd7d7] px-3 py-1 text-xs font-bold text-[#7f1d1d]">
               <AlertTriangle size={14} />
-              Operations console
+              Danger Zone
             </div>
 
             <h1 className="font-heading text-3xl font-semibold tracking-[-0.05em]">
               Системные скрипты
             </h1>
 
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-white/55">
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-white/55">
               Ручной запуск операций, которые массово меняют данные. Скрипты
               выполняются на сервере в фоне, а эта страница показывает статус,
               выбранные параметры и лог выполнения.
             </p>
           </div>
 
-          <div className="rounded-[22px] border border-white/10 bg-white/[0.04] p-4">
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-[#ffd7d7]">
-              <Activity size={14} />
-              Guardrails
-            </div>
-            <p className="mt-3 text-sm leading-6 text-white/50">
-              Одновременно запускается только одна операция. Опасные действия
-              требуют подтверждения перед стартом.
-            </p>
+          <div className="hidden rounded-[26px] bg-white/8 p-4 text-sm leading-6 text-white/60 lg:block lg:max-w-xs">
+            Одновременно запускается только одна операция. Опасные действия
+            требуют подтверждения.
           </div>
         </div>
       </section>
@@ -303,15 +327,12 @@ export default function ScriptsSettingsPage() {
           </button>
         }
       >
-        <div className="inline-flex flex-col rounded-[20px] border border-white/10 bg-white/[0.04] p-4">
-          <label className="text-xs font-bold uppercase tracking-wide text-white/35">
-            Дата обработки
-          </label>
-          <input
-            type="date"
+        <div className="max-w-xs rounded-[20px] border border-gray-200 bg-[#fbfbfa] p-4">
+          <UiDatePicker
+            label="Дата обработки"
             value={date}
-            onChange={(event) => setDate(event.target.value)}
-            className="mt-2 h-11 rounded-2xl border border-white/10 bg-white px-4 text-sm font-semibold text-black outline-none"
+            onChange={setDate}
+            disabled={activeKind !== null}
           />
         </div>
       </ScriptPanel>
@@ -448,6 +469,17 @@ export default function ScriptsSettingsPage() {
           )}
         </div>
       </section>
+
+      <ConfirmDialog
+        isOpen={Boolean(pendingConfirmation)}
+        title={pendingConfirmation?.title ?? ""}
+        description={pendingConfirmation?.description ?? null}
+        confirmText={pendingConfirmation?.confirmText ?? "Подтвердить"}
+        loadingText={pendingConfirmation?.loadingText ?? "Запускаем..."}
+        isLoading={activeKind === pendingConfirmation?.kind}
+        onConfirm={confirmPendingRun}
+        onClose={() => setPendingConfirmation(null)}
+      />
     </div>
   );
 }

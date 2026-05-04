@@ -1,17 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState, type DragEvent } from "react";
+import { useEffect, useState, type DragEvent } from "react";
 import { createPortal } from "react-dom";
-import {
-  CalendarDays,
-  ChevronLeft,
-  ChevronRight,
-  FileText,
-  Loader2,
-  Upload,
-  X,
-} from "lucide-react";
+import { FileText, Loader2, Upload, X } from "lucide-react";
 
+import {
+  getLocalDateInputValue,
+  UiDatePicker,
+} from "@/components/ui-date-picker";
 import { UiSelect } from "@/components/ui-select";
 
 type Project = {
@@ -54,53 +50,6 @@ type AddMeetingModalProps = {
   projects?: Project[];
 };
 
-function formatDateForInput(date: Date) {
-  return date.toISOString().slice(0, 10);
-}
-
-function formatDateForButton(value: string) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) return "Выбрать дату";
-
-  return date.toLocaleDateString("ru-RU", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function monthLabel(date: Date) {
-  return date.toLocaleDateString("ru-RU", {
-    month: "long",
-    year: "numeric",
-  });
-}
-
-function buildCalendarDays(activeMonth: Date) {
-  const year = activeMonth.getFullYear();
-  const month = activeMonth.getMonth();
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
-  const mondayBasedStart = (firstDay.getDay() + 6) % 7;
-  const days: Date[] = [];
-
-  for (let i = mondayBasedStart; i > 0; i -= 1) {
-    days.push(new Date(year, month, 1 - i));
-  }
-
-  for (let day = 1; day <= lastDay.getDate(); day += 1) {
-    days.push(new Date(year, month, day));
-  }
-
-  while (days.length % 7 !== 0) {
-    const nextDay = days.length - mondayBasedStart - lastDay.getDate() + 1;
-    days.push(new Date(year, month + 1, nextDay));
-  }
-
-  return days;
-}
-
 export function AddMeetingModal({
   isOpen,
   onClose,
@@ -114,18 +63,11 @@ export function AddMeetingModal({
   );
   const [meetingTypes, setMeetingTypes] = useState<MeetingType[]>([]);
   const [meetingTypeId, setMeetingTypeId] = useState("");
-  const [date, setDate] = useState(() => formatDateForInput(new Date()));
-  const [activeMonth, setActiveMonth] = useState(() => new Date());
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [date, setDate] = useState(() => getLocalDateInputValue());
   const [transcriptText, setTranscriptText] = useState("");
   const [fileName, setFileName] = useState("");
   const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const calendarDays = useMemo(
-    () => buildCalendarDays(activeMonth),
-    [activeMonth],
-  );
 
   const selectedMeetingType = meetingTypes.find(
     (type) => type.id === meetingTypeId,
@@ -246,9 +188,7 @@ export function AddMeetingModal({
 
       setTranscriptText("");
       setFileName("");
-      setDate(formatDateForInput(new Date()));
-      setActiveMonth(new Date());
-      setIsCalendarOpen(false);
+      setDate(getLocalDateInputValue());
 
       try {
         const analysisResponse = await fetch("/api/analyze-meeting", {
@@ -365,100 +305,7 @@ export function AddMeetingModal({
             }))}
           />
 
-          <div className="relative space-y-2">
-            <span className="block text-xs font-medium text-gray-500">
-              Дата
-            </span>
-
-            <button
-              type="button"
-              onClick={() => setIsCalendarOpen((value) => !value)}
-              className="flex h-[50px] w-full items-center justify-between rounded-2xl border border-gray-200 bg-[#f3f3f1] px-4 text-left text-sm outline-none transition hover:border-gray-300 focus:border-black"
-            >
-              <span>{formatDateForButton(date)}</span>
-              <CalendarDays size={16} className="shrink-0 text-gray-400" />
-            </button>
-
-            {isCalendarOpen ? (
-              <div className="absolute right-0 top-[76px] z-50 w-[320px] rounded-3xl border border-gray-200 bg-white p-4 shadow-xl">
-                <div className="mb-4 flex items-center justify-between">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setActiveMonth(
-                        new Date(
-                          activeMonth.getFullYear(),
-                          activeMonth.getMonth() - 1,
-                          1,
-                        ),
-                      )
-                    }
-                    className="rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-black"
-                  >
-                    <ChevronLeft size={18} />
-                  </button>
-
-                  <div className="font-heading text-sm font-semibold capitalize">
-                    {monthLabel(activeMonth)}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setActiveMonth(
-                        new Date(
-                          activeMonth.getFullYear(),
-                          activeMonth.getMonth() + 1,
-                          1,
-                        ),
-                      )
-                    }
-                    className="rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-black"
-                  >
-                    <ChevronRight size={18} />
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-7 gap-1 text-center text-xs font-medium text-gray-400">
-                  {["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map((day) => (
-                    <div key={day} className="py-1">
-                      {day}
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-2 grid grid-cols-7 gap-1">
-                  {calendarDays.map((day) => {
-                    const value = formatDateForInput(day);
-                    const isSelected = value === date;
-                    const isCurrentMonth =
-                      day.getMonth() === activeMonth.getMonth();
-
-                    return (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => {
-                          setDate(value);
-                          setIsCalendarOpen(false);
-                        }}
-                        className={[
-                          "h-9 rounded-full text-sm transition",
-                          isSelected
-                            ? "bg-black text-white"
-                            : isCurrentMonth
-                              ? "text-gray-700 hover:bg-gray-100"
-                              : "text-gray-300 hover:bg-gray-50",
-                        ].join(" ")}
-                      >
-                        {day.getDate()}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : null}
-          </div>
+          <UiDatePicker label="Дата" value={date} onChange={setDate} />
         </div>
 
         <label

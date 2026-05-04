@@ -139,7 +139,7 @@ function SignalChip({
 }) {
   const tone =
     trend === "up"
-      ? "border-[#d9ff3f]/30 bg-[#d9ff3f]/10 text-[#d9ff3f]"
+      ? "border-[#b7efc4]/35 bg-[#c9f5d3]/10 text-[#c9f5d3]"
       : trend === "down"
         ? "border-[#ffc0c0]/30 bg-[#ffc0c0]/10 text-[#ffc0c0]"
         : "border-white/10 bg-white/8 text-white/55";

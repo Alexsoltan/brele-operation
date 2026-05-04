@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { AlertTriangle, MessageCircle, Sparkles } from "lucide-react";
 
-import type { Mood, Risk } from "@/lib/types";
 import { formatMeetingDate } from "@/lib/types";
 
 type ParticipantRole = "client" | "team" | "ignore" | "unknown";
@@ -21,32 +20,11 @@ type ChatSummary = {
   date: string;
   summary: string;
   highlights: string[];
-  clientMood: Mood;
-  teamMood: Mood;
-  risk: Risk;
 };
 
 function normalizeParam(value: string | string[] | undefined) {
   if (Array.isArray(value)) return value[0] ?? "";
   return value ?? "";
-}
-
-function moodLabel(value: Mood) {
-  if (value === "good") return "Хорошее";
-  if (value === "bad") return "Плохое";
-  return "Нейтральное";
-}
-
-function riskLabel(value: Risk) {
-  if (value === "high") return "Высокий";
-  if (value === "medium") return "Средний";
-  return "Низкий";
-}
-
-function riskClassName(value: Risk) {
-  if (value === "high") return "bg-red-50 text-red-700 border-red-100";
-  if (value === "medium") return "bg-amber-50 text-amber-700 border-amber-100";
-  return "bg-green-50 text-green-700 border-green-100";
 }
 
 export default function ProjectChatsPage() {
@@ -116,12 +94,11 @@ export default function ProjectChatsPage() {
     );
   }
 
-  const latestSummary = summaries[0];
     return (
     <div className="grid grid-cols-[1fr_340px] gap-6">
       <main className="space-y-5">
         <section className="rounded-[32px] border border-gray-200 bg-white p-6">
-          <div className="mb-5 flex items-start justify-between gap-5">
+          <div className="mb-5">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-[#fbfbfa] px-3 py-1 text-xs font-medium text-gray-500">
                 <Sparkles size={13} />
@@ -138,19 +115,9 @@ export default function ProjectChatsPage() {
               </p>
             </div>
 
-            {latestSummary ? (
-              <div
-                className={[
-                  "rounded-2xl border px-3 py-2 text-xs font-semibold",
-                  riskClassName(latestSummary.risk),
-                ].join(" ")}
-              >
-                Риск: {riskLabel(latestSummary.risk)}
-              </div>
-            ) : null}
           </div>
 
-          {!latestSummary ? (
+          {summaries.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-gray-200 bg-[#fbfbfa] p-6">
               <div className="flex items-start gap-3">
                 <div className="rounded-2xl bg-white p-3 text-gray-400">
@@ -169,100 +136,23 @@ export default function ProjectChatsPage() {
               </div>
             </div>
           ) : (
-
-            
-          <div className="rounded-3xl border border-gray-100 bg-[#fbfbfa] p-4">
-
-  <div className="mb-2 flex items-center justify-between gap-3">
-
-    <div className="text-xs font-medium text-gray-400">
-
-      {formatMeetingDate(latestSummary.date)}
-
-    </div>
-
-    <div className="flex items-center gap-2">
-
-      <div className="rounded-full border px-2 py-1 text-[11px] font-medium text-gray-600 bg-white">
-
-        Клиент: {moodLabel(latestSummary.clientMood)}
-
-      </div>
-
-      <div
-
-        className={[
-
-          "rounded-full border px-2 py-1 text-[11px] font-semibold",
-
-          riskClassName(latestSummary.risk),
-
-        ].join(" ")}
-
-      >
-
-        Риск: {riskLabel(latestSummary.risk)}
-
-      </div>
-
-      <div className="rounded-full border px-2 py-1 text-[11px] font-medium text-gray-600 bg-white">
-
-        Команда: {moodLabel(latestSummary.teamMood)}
-
-      </div>
-
-    </div>
-
-  </div>
-
-  <p className="text-sm leading-6 text-gray-600 line-clamp-3">
-
-    {latestSummary.summary}
-
-  </p>
-
-</div>
-          )}
-        </section>
-
-        <section className="rounded-[32px] border border-gray-200 bg-white p-6">
-          <h3 className="font-heading text-xl font-semibold tracking-[-0.03em]">
-            Архив summary
-          </h3>
-
-          <div className="mt-4 space-y-3">
-            {summaries.length <= 1 ? (
-              <div className="text-sm text-gray-500">
-                Архив появится после нескольких дней анализа.
-              </div>
-            ) : (
-              summaries.slice(1).map((summary) => (
-                <div
+            <div className="space-y-3">
+              {summaries.map((summary) => (
+                <article
                   key={summary.id}
-                  className="rounded-3xl border border-gray-100 bg-[#fbfbfa] p-4"
+                  className="rounded-[26px] border border-gray-200 bg-white p-4"
                 >
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <div className="text-xs font-medium text-gray-400">
-                      {formatMeetingDate(summary.date)}
-                    </div>
-
-                    <div
-                      className={[
-                        "rounded-full border px-2 py-1 text-[11px] font-semibold",
-                        riskClassName(summary.risk),
-                      ].join(" ")}
-                    >
-                      {riskLabel(summary.risk)}
-                    </div>
+                  <div className="mb-1 text-xs font-semibold text-gray-500">
+                    {formatMeetingDate(summary.date)}
                   </div>
 
-                  <p className="line-clamp-3 text-sm leading-6 text-gray-600">
+                  <p className="text-sm leading-5 text-gray-700">
                     {summary.summary}
                   </p>
-                </div>
-              ))
-            )}
-          </div>
+                </article>
+              ))}
+            </div>
+          )}
         </section>
       </main>
 

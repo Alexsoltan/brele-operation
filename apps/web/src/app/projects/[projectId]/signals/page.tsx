@@ -2,13 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import {
-  AlertTriangle,
-  Bot,
-  MessageCircle,
-  Plus,
-  User,
-} from "lucide-react";
+import { AlertTriangle, Plus } from "lucide-react";
 
 import { formatMeetingDate } from "@/lib/types";
 import type { ProjectSignal } from "@/lib/types";
@@ -19,36 +13,20 @@ function normalizeParam(value: string | string[] | undefined) {
   return value ?? "";
 }
 
-function sourceLabel(source: ProjectSignal["source"]) {
-  if (source === "chat") return "Чат";
-  if (source === "manual") return "Ручной";
-  return "Встреча";
-}
-
-function SourceIcon({ source }: { source: ProjectSignal["source"] }) {
-  if (source === "chat") return <MessageCircle size={13} />;
-  if (source === "manual") return <User size={13} />;
-  return <Bot size={13} />;
-}
-
-function severityTone(severity: ProjectSignal["severity"]) {
-  if (severity === "critical" || severity === "high") {
-    return "bg-[#ffd7d7] text-[#7f1d1d]";
+function signalCardTone(direction: ProjectSignal["direction"]) {
+  if (direction === "positive") {
+    return "border-[#bdeec6] bg-[linear-gradient(135deg,#f1fff4_0%,#ffffff_66%)]";
   }
 
-  if (severity === "medium") {
-    return "bg-[#fff3a3] text-[#6f5200]";
+  if (direction === "negative") {
+    return "border-[#ffd7d7] bg-[linear-gradient(135deg,#fff1f1_0%,#ffffff_68%)]";
   }
 
-  return "bg-[#c9f5d3] text-[#1f5f34]";
+  return "border-gray-200 bg-white";
 }
 
-function severityLabel(severity: ProjectSignal["severity"]) {
-  if (severity === "critical") return "Критично";
-  if (severity === "high") return "Высокий";
-  if (severity === "medium") return "Средний";
-  if (severity === "low") return "Низкий";
-  return "Инфо";
+function isHighRiskSignal(signal: ProjectSignal) {
+  return signal.severity === "critical" || signal.severity === "high";
 }
 
 export default function ProjectSignalsPage() {
@@ -117,45 +95,35 @@ export default function ProjectSignalsPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {signals.map((signal) => (
-                <article
-                  key={signal.id}
-                  className="rounded-[26px] border border-gray-200 bg-white p-4"
-                >
-                  <div className="mb-3 flex items-center gap-2">
-                    <span className="text-xs font-semibold text-gray-500">
-                      {formatMeetingDate(signal.occurredAt)}
-                    </span>
+              {signals.map((signal) => {
+                const highRisk = isHighRiskSignal(signal);
 
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-black px-2.5 py-1 text-xs font-semibold text-white">
-                      <SourceIcon source={signal.source} />
-                      {sourceLabel(signal.source)}
-                    </span>
+                return (
+                  <article
+                    key={signal.id}
+                    className={[
+                      "relative rounded-[26px] border p-4 pr-14",
+                      signalCardTone(signal.direction),
+                    ].join(" ")}
+                  >
+                    <div className="mb-1">
+                      <span className="text-xs font-semibold text-gray-500">
+                        {formatMeetingDate(signal.occurredAt)}
+                      </span>
 
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-[#d9ff3f] px-2.5 py-1 text-xs font-semibold text-black">
-                      {signal.typeLabel ?? signal.typeKey}
-                    </span>
+                      {highRisk ? (
+                        <span className="absolute right-4 top-4 inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#ffd7d7] text-[#7f1d1d]">
+                          <AlertTriangle size={14} />
+                        </span>
+                      ) : null}
+                    </div>
 
-                    <span
-                      className={[
-                        "ml-auto inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",
-                        severityTone(signal.severity),
-                      ].join(" ")}
-                    >
-                      <AlertTriangle size={12} />
-                      {severityLabel(signal.severity)}
-                    </span>
-                  </div>
-
-                  <h3 className="text-sm font-semibold text-gray-950">
-                    {signal.title}
-                  </h3>
-
-                  <p className="mt-2 text-sm leading-5 text-gray-700">
-                    {signal.text}
-                  </p>
-                </article>
-              ))}
+                    <p className="text-sm leading-5 text-gray-700">
+                      {signal.text}
+                    </p>
+                  </article>
+                );
+              })}
             </div>
           )}
         </section>

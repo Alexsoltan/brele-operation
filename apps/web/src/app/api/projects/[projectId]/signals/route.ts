@@ -37,10 +37,15 @@ export async function GET(
     orderBy: { occurredAt: "desc" },
     take: 100,
   });
+  const signalTypes = await getActiveSignalTypeConfigs(user.workspaceId);
+  const signalTypeLabelByKey = new Map(
+    signalTypes.map((item) => [item.key, item.label]),
+  );
 
   return NextResponse.json(
     signals.map((signal: any) => ({
       ...signal,
+      typeLabel: signal.typeLabel ?? signalTypeLabelByKey.get(signal.typeKey),
       occurredAt: signal.occurredAt.toISOString(),
       createdAt: signal.createdAt.toISOString(),
       updatedAt: signal.updatedAt.toISOString(),

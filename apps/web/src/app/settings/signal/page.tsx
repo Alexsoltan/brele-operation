@@ -212,36 +212,6 @@ export default function SignalSettingsPage() {
             Добавить сигнал
           </button>
         </div>
-
-        <div className="mt-6 grid grid-cols-4 gap-3">
-          <div className="rounded-[24px] bg-white/8 p-4">
-            <div className="text-xs text-white/40">Всего типов</div>
-            <div className="mt-2 text-3xl font-semibold">{items.length}</div>
-          </div>
-
-          <div className="rounded-[24px] bg-white/8 p-4">
-            <div className="text-xs text-white/40">High risk</div>
-            <div className="mt-2 text-3xl font-semibold">
-              {items.filter((item) => item.isHighRisk).length}
-            </div>
-          </div>
-
-          <div className="rounded-[24px] bg-white/8 p-4">
-            <div className="text-xs text-white/40">Негативные</div>
-            <div className="mt-2 text-3xl font-semibold">
-              {items.filter((item) => item.direction === "negative").length}
-            </div>
-          </div>
-
-          <div className="rounded-[24px] bg-[#d9ff3f] p-4 text-black">
-            <div className="text-xs font-semibold text-black/55">
-              Позитивные
-            </div>
-            <div className="mt-2 text-3xl font-semibold">
-              {items.filter((item) => item.direction === "positive").length}
-            </div>
-          </div>
-        </div>
       </section>
 
       <section className="rounded-[34px] border border-gray-200 bg-white p-5 shadow-[0_24px_80px_rgba(0,0,0,0.06)]">
