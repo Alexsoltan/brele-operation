@@ -1,0 +1,9 @@
+[Unit]
+Description=Brele Operations daily chat summaries and project signals
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/brele-operation/apps/web
+ExecStart=/usr/bin/env bash -lc 'pnpm daily:operations'

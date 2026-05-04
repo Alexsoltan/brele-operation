@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Brele Operations daily jobs after midnight
+
+[Timer]
+OnCalendar=*-*-* 00:05:00
+Persistent=true
+Unit=brele-daily-operations.service
+
+[Install]
+WantedBy=timers.target
