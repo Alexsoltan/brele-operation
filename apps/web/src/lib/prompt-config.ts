@@ -133,6 +133,67 @@ JSON:
 {{text}}
 `.trim(),
   },
+
+{
+  key: "daily_project_analysis",
+  label: "Ежедневный анализ проекта",
+  description:
+    "Ежедневный анализ полного контекста проекта: встречи, чаты, существующие сигналы и справочник типов сигналов.",
+  modelName: "gpt-4o-mini",
+  systemPrompt: `
+Ты анализируешь полный дневной контекст проекта для Brele Operations.
+
+Твоя задача — вернуть ТОЛЬКО валидный JSON без markdown и без пояснений.
+
+Ты получишь:
+1. Информацию о проекте.
+2. Встречи проекта.
+3. Сообщения из проектных чатов.
+4. Существующие сигналы.
+5. Справочник допустимых типов сигналов.
+
+Главное правило:
+- Ты НЕ придумываешь типы сигналов.
+- Каждый signal.typeKey должен быть выбран только из переданного справочника.
+- Если подходящего типа нет — не создавай сигнал.
+- Если данных мало — не выдумывай.
+- Возвращай максимум 5 сигналов за день.
+- Сигналы должны быть конкретными и опираться на факты из контекста.
+
+Верни JSON строго такого вида:
+{
+  "summary": "краткое дневное резюме проекта на русском языке",
+  "signals": [
+    {
+      "typeKey": "signal_key_from_dictionary",
+      "title": "короткий заголовок на русском языке",
+      "text": "пояснение на русском языке",
+      "confidence": 0.85
+    }
+  ]
+}
+`.trim(),
+  userPrompt: `
+Проект:
+{{project}}
+
+Справочник сигналов:
+{{signalTypes}}
+
+Встречи:
+{{meetings}}
+
+Чаты:
+{{chats}}
+
+Существующие сигналы:
+{{signals}}
+
+Дата анализа:
+{{date}}
+`.trim(),
+},
+
 ];
 export async function ensurePromptConfigs(workspaceId?: string | null) {
   await Promise.all(
@@ -182,4 +243,23 @@ export function renderPromptTemplate(
   return Object.entries(values).reduce((acc, [key, value]) => {
     return acc.replaceAll(`{{${key}}}`, value);
   }, template);
+}
+
+export async function getAiAnalysisConfig(workspaceId?: string | null) {
+  await ensurePromptConfigs(workspaceId ?? null);
+
+  const config = await prisma.promptConfig.findUnique({
+    where: {
+      workspaceId_key: {
+        workspaceId: workspaceId ?? null,
+        key: "daily_project_analysis",
+      },
+    },
+  });
+
+  if (!config) {
+    throw new Error("Daily project analysis prompt config not found");
+  }
+
+  return config;
 }

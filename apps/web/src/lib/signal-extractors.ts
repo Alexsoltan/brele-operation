@@ -5,7 +5,6 @@ import {
 } from "@/lib/project-signals";
 import type {
   Meeting,
-  SignalCategory,
   SignalType,
 } from "@/lib/types";
 
@@ -17,51 +16,30 @@ type ChatDailySummaryLike = {
   highlights: string[];
 };
 
-function detectSignalType(text: string): {
-  type: SignalType;
-  category: SignalCategory;
-} {
+function detectSignalType(text: string): SignalType {
   const t = text.toLowerCase();
 
   if (t.includes("клиент") && t.includes("недовол")) {
-    return {
-      type: "client_dissatisfaction",
-      category: "client",
-    };
+    return "client_dissatisfaction";
   }
 
   if (t.includes("клиент") && (t.includes("довол") || t.includes("хорошо"))) {
-    return {
-      type: "client_satisfaction",
-      category: "client",
-    };
+    return "client_satisfaction";
   }
 
   if (t.includes("срок") || t.includes("дедлайн")) {
-    return {
-      type: "deadline_risk",
-      category: "delivery",
-    };
+    return "deadline_risk";
   }
 
   if (t.includes("блокер")) {
-    return {
-      type: "blocker",
-      category: "delivery",
-    };
+    return "blocker";
   }
 
   if (t.includes("объем") || t.includes("scope")) {
-    return {
-      type: "scope_change",
-      category: "delivery",
-    };
+    return "scope_change";
   }
 
-  return {
-    type: "communication_gap",
-    category: "communication",
-  };
+  return "communication_gap";
 }
 
 function normalizeDate(value: Date | string) {
@@ -84,15 +62,15 @@ export async function extractSignalsFromMeeting(meeting: Meeting) {
   const signals = [];
 
   for (const highlight of meeting.highlights) {
-    const detected = detectSignalType(highlight);
+    const typeKey = detectSignalType(highlight);
 
     const signal = await createProjectSignal({
       projectId: meeting.projectId,
       source: "meeting",
       sourceId: meeting.id,
 
-      type: detected.type,
-      category: detected.category,
+      typeKey,
+      typeLabel: null,
       direction: getSignalDirectionFromText(highlight),
       severity: getSignalSeverityFromText(highlight),
 
@@ -120,15 +98,15 @@ export async function extractSignalsFromChatSummary(
   const signals = [];
 
   for (const highlight of summary.highlights) {
-    const detected = detectSignalType(highlight);
+    const typeKey = detectSignalType(highlight);
 
     const signal = await createProjectSignal({
       projectId: summary.projectId,
       source: "chat",
       sourceId: summary.id,
 
-      type: detected.type,
-      category: detected.category,
+      typeKey,
+      typeLabel: null,
       direction: getSignalDirectionFromText(highlight),
       severity: getSignalSeverityFromText(highlight),
 

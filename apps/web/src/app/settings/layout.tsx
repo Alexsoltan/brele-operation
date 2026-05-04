@@ -5,16 +5,21 @@ import { usePathname } from "next/navigation";
 
 const tabs = [
   {
-  label: "Веса сигналов",
-  href: "/settings/signal-weights",
+  label: "Сигналы",
+  href: "/settings/signal",
+  },
+
+  {
+  href: "/settings/ai-analysis",
+  label: "AI-анализ",
   },
   {
     label: "Типы встреч",
     href: "/settings/meeting-types",
   },
   {
-    label: "Скоринг проекта",
-    href: "/settings/project-scoring",
+  href: "/settings/scripts",
+  label: "Скрипты",
   },
 ];
 

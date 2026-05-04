@@ -43,28 +43,6 @@ function severityTone(severity: ProjectSignal["severity"]) {
   return "bg-[#c9f5d3] text-[#1f5f34]";
 }
 
-function signalTypeLabel(type: ProjectSignal["type"]) {
-  const labels: Record<ProjectSignal["type"], string> = {
-    client_satisfaction: "Клиент доволен",
-    client_dissatisfaction: "Клиент недоволен",
-    client_trust: "Доверие клиента",
-    team_confidence: "Уверенность команды",
-    team_demotivation: "Демотивация команды",
-    deadline_risk: "Риск сроков",
-    scope_change: "Изменение объёма",
-    quality_issue: "Проблема качества",
-    blocker: "Блокер",
-    budget_risk: "Риск бюджета",
-    communication_gap: "Проблема коммуникации",
-    decision_made: "Решение принято",
-    escalation: "Эскалация",
-    positive_feedback: "Позитивный фидбек",
-    upsell_opportunity: "Upsell возможность",
-  };
-
-  return labels[type] ?? type;
-}
-
 function severityLabel(severity: ProjectSignal["severity"]) {
   if (severity === "critical") return "Критично";
   if (severity === "high") return "Высокий";
@@ -155,7 +133,7 @@ export default function ProjectSignalsPage() {
                     </span>
 
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-[#d9ff3f] px-2.5 py-1 text-xs font-semibold text-black">
-                      {signalTypeLabel(signal.type)}
+                      {signal.typeLabel ?? signal.typeKey}
                     </span>
 
                     <span

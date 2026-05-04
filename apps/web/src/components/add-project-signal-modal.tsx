@@ -1,15 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Send } from "lucide-react";
 
 import { UIModal } from "@/components/ui-modal";
 import { UiSelect } from "@/components/ui-select";
 import type {
-  SignalCategory,
   SignalDirection,
   SignalSeverity,
-  SignalType,
+  SignalTypeConfig,
 } from "@/lib/types";
 
 type Props = {
@@ -18,24 +17,6 @@ type Props = {
   projectId: string;
   onCreated: () => void;
 };
-
-const signalTypeOptions: Array<{ value: SignalType; label: string }> = [
-  { value: "client_satisfaction", label: "Клиент доволен" },
-  { value: "client_dissatisfaction", label: "Клиент недоволен" },
-  { value: "client_trust", label: "Доверие клиента" },
-  { value: "team_confidence", label: "Уверенность команды" },
-  { value: "team_demotivation", label: "Демотивация команды" },
-  { value: "deadline_risk", label: "Риск сроков" },
-  { value: "scope_change", label: "Изменение объёма" },
-  { value: "quality_issue", label: "Проблема качества" },
-  { value: "blocker", label: "Блокер" },
-  { value: "budget_risk", label: "Риск бюджета" },
-  { value: "communication_gap", label: "Проблема коммуникации" },
-  { value: "decision_made", label: "Решение принято" },
-  { value: "escalation", label: "Эскалация" },
-  { value: "positive_feedback", label: "Позитивный фидбек" },
-  { value: "upsell_opportunity", label: "Upsell возможность" },
-];
 
 const directionOptions: Array<{ value: SignalDirection; label: string }> = [
   { value: "negative", label: "Негатив" },
@@ -51,43 +32,6 @@ const severityOptions: Array<{ value: SignalSeverity; label: string }> = [
   { value: "critical", label: "Критичный" },
 ];
 
-function getCategoryByType(type: SignalType): SignalCategory {
-  if (
-    type === "client_satisfaction" ||
-    type === "client_dissatisfaction" ||
-    type === "client_trust"
-  ) {
-    return "client";
-  }
-
-  if (type === "team_confidence" || type === "team_demotivation") {
-    return "team";
-  }
-
-  if (
-    type === "deadline_risk" ||
-    type === "scope_change" ||
-    type === "quality_issue" ||
-    type === "blocker"
-  ) {
-    return "delivery";
-  }
-
-  if (type === "budget_risk") {
-    return "business";
-  }
-
-  if (type === "communication_gap" || type === "escalation") {
-    return "communication";
-  }
-
-  if (type === "decision_made") {
-    return "process";
-  }
-
-  return "opportunity";
-}
-
 export function AddProjectSignalModal({
   isOpen,
   onClose,
@@ -96,12 +40,66 @@ export function AddProjectSignalModal({
 }: Props) {
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
-  const [type, setType] = useState<SignalType>("communication_gap");
+  const [signalTypes, setSignalTypes] = useState<SignalTypeConfig[]>([]);
+  const [typeKey, setTypeKey] = useState("");
   const [direction, setDirection] = useState<SignalDirection>("neutral");
   const [severity, setSeverity] = useState<SignalSeverity>("medium");
 
+  const signalTypeOptions = useMemo(
+    () =>
+      signalTypes.map((item) => ({
+        value: item.key,
+        label: item.label,
+      })),
+    [signalTypes],
+  );
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let cancelled = false;
+
+    async function loadSignalTypes() {
+      const response = await fetch("/api/signal-types");
+
+      if (!response.ok) return;
+
+      const data = (await response.json()) as SignalTypeConfig[];
+      const items = Array.isArray(data) ? data : [];
+
+      if (cancelled) return;
+
+      setSignalTypes(items);
+
+      if (items.length > 0 && !items.some((item) => item.key === typeKey)) {
+        const first = items[0];
+
+        setTypeKey(first.key);
+        setDirection(first.direction);
+        setSeverity(first.isHighRisk ? "high" : "medium");
+      }
+    }
+
+    loadSignalTypes();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, typeKey]);
+
+  function selectType(nextTypeKey: string) {
+    const item = signalTypes.find((signalType) => signalType.key === nextTypeKey);
+
+    setTypeKey(nextTypeKey);
+
+    if (item) {
+      setDirection(item.direction);
+      setSeverity(item.isHighRisk ? "high" : "medium");
+    }
+  }
+
   async function handleSubmit() {
-    if (!text.trim()) return;
+    if (!text.trim() || !typeKey) return;
 
     const res = await fetch(`/api/projects/${projectId}/signals`, {
       method: "POST",
@@ -111,8 +109,7 @@ export function AddProjectSignalModal({
       body: JSON.stringify({
         title: title.trim() || text.trim().slice(0, 80),
         text: text.trim(),
-        category: getCategoryByType(type),
-        type,
+        typeKey,
         direction,
         severity,
         occurredAt: new Date().toISOString(),
@@ -123,9 +120,9 @@ export function AddProjectSignalModal({
 
     setTitle("");
     setText("");
-    setType("communication_gap");
-    setDirection("neutral");
-    setSeverity("medium");
+    setTypeKey(signalTypes[0]?.key ?? "");
+    setDirection(signalTypes[0]?.direction ?? "neutral");
+    setSeverity(signalTypes[0]?.isHighRisk ? "high" : "medium");
 
     onClose();
     onCreated();
@@ -156,9 +153,10 @@ export function AddProjectSignalModal({
 
         <UiSelect
           label="Тип сигнала"
-          value={type}
-          onChange={(value) => setType(value as SignalType)}
+          value={typeKey}
+          onChange={selectType}
           options={signalTypeOptions}
+          disabled={signalTypeOptions.length === 0}
         />
 
         <UiSelect
@@ -178,7 +176,7 @@ export function AddProjectSignalModal({
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={!text.trim()}
+          disabled={!text.trim() || !typeKey}
           className="inline-flex h-[50px] w-full items-center justify-center gap-2 rounded-2xl bg-black px-4 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
         >
           <Send size={16} />

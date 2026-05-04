@@ -3,12 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireCanManageProjects, requireCanRead } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createProjectSignal } from "@/lib/project-signals";
-import type {
-  SignalCategory,
-  SignalDirection,
-  SignalSeverity,
-  SignalType,
-} from "@/lib/types";
+import { getActiveSignalTypeConfigs } from "@/lib/signal-type-config";
+import type { SignalDirection, SignalSeverity } from "@/lib/types";
 import { recalculateProjectHealth } from "@/lib/recalculate-project-health";
 
 function normalizeParam(value: string | string[] | undefined) {
@@ -73,15 +69,33 @@ export async function POST(
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
+  const typeKey =
+    typeof body?.typeKey === "string" && body.typeKey.trim()
+      ? body.typeKey.trim()
+      : typeof body?.type === "string" && body.type.trim()
+        ? body.type.trim()
+        : "communication_gap";
+
+  const signalTypes = await getActiveSignalTypeConfigs(user.workspaceId);
+  const signalType = signalTypes.find((item) => item.key === typeKey);
+
+  if (!signalType) {
+    return NextResponse.json(
+      { error: "Signal type not found" },
+      { status: 400 },
+    );
+  }
+
   const signal = await createProjectSignal({
     projectId,
     source: "manual",
     sourceId: null,
 
-    category: (body?.category ?? "communication") as SignalCategory,
-    type: (body?.type ?? "communication_gap") as SignalType,
-    direction: (body?.direction ?? "neutral") as SignalDirection,
-    severity: (body?.severity ?? "medium") as SignalSeverity,
+    typeKey: signalType.key,
+    typeLabel: signalType.label,
+    direction: (body?.direction ?? signalType.direction) as SignalDirection,
+    severity: (body?.severity ??
+      (signalType.isHighRisk ? "high" : "medium")) as SignalSeverity,
     status: "active",
 
     title:

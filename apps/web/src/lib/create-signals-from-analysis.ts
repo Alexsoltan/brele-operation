@@ -24,8 +24,8 @@ export async function createSignalsFromAnalysis(params: {
       source: "meeting",
       sourceId: meetingId,
 
-      type: signal.type,
-      category: "communication", // временно (потом можно нормализовать)
+      typeKey: signal.type,
+      typeLabel: null,
       direction: signal.direction,
       severity: signal.severity,
 

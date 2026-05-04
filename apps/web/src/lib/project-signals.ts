@@ -13,6 +13,8 @@ import type { ProjectSignal as PrismaProjectSignal } from "@/generated/prisma/cl
 function normalizeSignalInput(input: CreateProjectSignalInput) {
   return {
     ...input,
+    typeKey: input.typeKey.trim(),
+    typeLabel: input.typeLabel?.trim() || null,
     status: input.status ?? "active",
     confidence: input.confidence ?? null,
     occurredAt: new Date(input.occurredAt),
@@ -27,7 +29,7 @@ async function isDuplicateSignal(input: CreateProjectSignalInput) {
   const existing = await prisma.projectSignal.findFirst({
     where: {
       projectId: input.projectId,
-      type: input.type,
+      typeKey: input.typeKey,
       text: input.text,
       occurredAt: new Date(input.occurredAt),
     },

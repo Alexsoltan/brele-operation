@@ -51,6 +51,7 @@ enum PromptConfigKey {
   signal_extraction_from_meeting
   signal_extraction_from_chat
   project_health_summary
+  daily_project_analysis
 }
 
 enum SignalSource {
@@ -123,6 +124,7 @@ model Workspace {
   projectScoringConfigs ProjectScoringConfig[]
   promptConfigs         PromptConfig[]
   signalWeightConfigs   SignalWeightConfig[]
+  signalTypeConfigs     SignalTypeConfig[]
 
   @@index([deletedAt])
 }
@@ -404,8 +406,9 @@ model ProjectSignal {
   source   SignalSource
   sourceId String?
 
-  category  SignalCategory
-  type      SignalType
+  typeKey   String
+  typeLabel String?
+
   direction SignalDirection
   severity  SignalSeverity
   status    SignalStatus @default(active)
@@ -424,7 +427,7 @@ model ProjectSignal {
 
   @@index([projectId])
   @@index([source])
-  @@index([type])
+  @@index([typeKey])
   @@index([severity])
   @@index([status])
   @@index([occurredAt])
@@ -452,4 +455,35 @@ model SignalWeightConfig {
   @@index([workspaceId])
   @@index([type])
   @@index([isActive])
+}
+model SignalTypeConfig {
+  id          String @id @default(cuid())
+  workspaceId String?
+
+  key   String
+  label String
+
+  isHighRisk Boolean @default(false)
+  direction  SignalDirection @default(neutral)
+
+  healthImpact     Float @default(0)
+  clientMoodImpact Float @default(0)
+  teamMoodImpact   Float @default(0)
+
+  description String?
+  isActive    Boolean @default(true)
+  sortOrder   Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, key])
+  @@index([workspaceId])
+  @@index([key])
+  @@index([direction])
+  @@index([isHighRisk])
+  @@index([isActive])
+  @@index([sortOrder])
 }

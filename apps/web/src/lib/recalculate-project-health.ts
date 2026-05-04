@@ -1,13 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { clampHealthScore } from "@/lib/project-health";
-import { getSignalWeightConfig } from "@/lib/signal-weight-config";
+import { getActiveSignalTypeConfigs } from "@/lib/signal-type-config";
 import type {
   Mood,
   ProjectHealthLabel,
   ProjectHealthTrend,
   ProjectSignal,
   Risk,
-  SignalWeightConfig,
+  SignalTypeConfig,
 } from "@/lib/types";
 
 function clampScore(value: number) {
@@ -97,18 +97,18 @@ export async function recalculateProjectHealth(
     updatedAt: signal.updatedAt.toISOString(),
   }));
 
-  const weights = (await getSignalWeightConfig(
+  const signalTypes = (await getActiveSignalTypeConfigs(
     resolvedWorkspaceId,
-  )) as SignalWeightConfig[];
+  )) as SignalTypeConfig[];
 
   let healthScore = 100;
   let clientMoodScore = 60;
   let teamMoodScore = 60;
 
   const healthPoints = signals.map((signal) => {
-    const config = weights.find((weight) => weight.type === signal.type);
+    const config = signalTypes.find((type) => type.key === signal.typeKey);
 
-    const healthImpact = Math.round(config?.weight ?? 0);
+    const healthImpact = Math.round(config?.healthImpact ?? 0);
     const clientImpact = config?.clientMoodImpact ?? 0;
     const teamImpact = config?.teamMoodImpact ?? 0;
 

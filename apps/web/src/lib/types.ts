@@ -97,8 +97,9 @@ export type ProjectSignal = {
   source: SignalSource;
   sourceId?: string | null;
 
-  category: SignalCategory;
-  type: SignalType;
+  typeKey: string;
+  typeLabel?: string | null;
+
   direction: SignalDirection;
   severity: SignalSeverity;
   status: SignalStatus;
@@ -119,7 +120,8 @@ export type PromptConfigKey =
   | "chat_daily_summary"
   | "signal_extraction_from_meeting"
   | "signal_extraction_from_chat"
-  | "project_health_summary";
+  | "project_health_summary"
+  | "daily_project_analysis";
 
 export type PromptConfig = {
   id: string;
@@ -155,14 +157,37 @@ export type SignalWeightConfig = {
   updatedAt: string;
 };
 
+export type SignalTypeConfig = {
+  id: string;
+  workspaceId?: string | null;
+
+  key: string;
+  label: string;
+
+  isHighRisk: boolean;
+  direction: SignalDirection;
+
+  healthImpact: number;
+  clientMoodImpact: number;
+  teamMoodImpact: number;
+
+  description?: string | null;
+  isActive: boolean;
+  sortOrder: number;
+
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type CreateProjectSignalInput = {
   projectId: string;
 
   source: SignalSource;
   sourceId?: string | null;
 
-  category: SignalCategory;
-  type: SignalType;
+  typeKey: string;
+  typeLabel?: string | null;
+
   direction: SignalDirection;
   severity: SignalSeverity;
   status?: SignalStatus;
