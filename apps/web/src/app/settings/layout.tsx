@@ -5,21 +5,20 @@ import { usePathname } from "next/navigation";
 
 const tabs = [
   {
-  label: "Сигналы",
-  href: "/settings/signal",
+    label: "Сигналы",
+    href: "/settings/signal",
   },
-
   {
-  href: "/settings/ai-analysis",
-  label: "AI-анализ",
+    href: "/settings/ai-analysis",
+    label: "AI-анализ",
   },
   {
     label: "Типы встреч",
     href: "/settings/meeting-types",
   },
   {
-  href: "/settings/scripts",
-  label: "Скрипты",
+    href: "/settings/scripts",
+    label: "Скрипты",
   },
 ];
 
@@ -38,7 +37,7 @@ export default function SettingsLayout({
         </h1>
 
         <p className="mt-2 text-sm text-gray-500">
-          Управление логикой анализа, скорингом и типами встреч
+          Управление логикой анализа, сигналами и типами встреч
         </p>
       </div>
 

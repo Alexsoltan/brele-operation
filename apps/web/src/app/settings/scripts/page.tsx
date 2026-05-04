@@ -1,7 +1,14 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useState } from "react";
-import { AlertTriangle, CalendarDays, RotateCcw, Terminal } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  CalendarDays,
+  RotateCcw,
+  Terminal,
+} from "lucide-react";
 
 type ScriptResult = {
   ok: boolean;
@@ -69,6 +76,53 @@ function getStatusClassName(result: ScriptResult) {
   }
 
   return "bg-[#d9ff3f] text-black";
+}
+
+function ScriptPanel({
+  eyebrow,
+  title,
+  description,
+  details,
+  children,
+  action,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  details?: string;
+  children?: ReactNode;
+  action: ReactNode;
+}) {
+  return (
+    <section className="rounded-[28px] border border-white/10 bg-[#1f1f1f] p-6 text-white shadow-[0_24px_80px_rgba(0,0,0,0.12)]">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#ffb4b4]/20 bg-[#ffd7d7]/10 px-3 py-1 text-xs font-bold text-[#ffd7d7]">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#ff6b6b]" />
+            {eyebrow}
+          </div>
+
+          <h2 className="text-2xl font-semibold tracking-[-0.04em]">
+            {title}
+          </h2>
+
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-white/55">
+            {description}
+          </p>
+
+          {details ? (
+            <p className="mt-4 max-w-2xl border-l border-white/15 pl-4 text-sm leading-6 text-white/45">
+              {details}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="shrink-0">{action}</div>
+      </div>
+
+      {children ? <div className="mt-5">{children}</div> : null}
+    </section>
+  );
 }
 
 export default function ScriptsSettingsPage() {
@@ -197,91 +251,77 @@ export default function ScriptsSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-[34px] border border-[#ffd7d7] bg-white p-6 shadow-[0_24px_80px_rgba(0,0,0,0.06)]">
-        <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-[#ffd7d7] px-3 py-1 text-xs font-bold text-[#7f1d1d]">
-          <AlertTriangle size={14} />
-          Danger Zone
-        </div>
-
-        <h1 className="font-heading text-3xl font-semibold tracking-[-0.05em] text-gray-950">
-          Системные скрипты
-        </h1>
-
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
-          Временный раздел для отладки системных операций. Эти действия могут
-          массово менять данные, поэтому запускаем их вручную и осознанно.
-          Долгие операции выполняются на сервере в фоне, а эта страница только
-          показывает их статус и лог.
-        </p>
-      </section>
-
-      <section className="rounded-[34px] bg-[#1f1f1f] p-6 text-white shadow-[0_24px_80px_rgba(0,0,0,0.12)]">
-        <div className="mb-6 flex items-start justify-between gap-6">
+      <section className="overflow-hidden rounded-[28px] border border-[#2b2b2b] bg-[#151515] text-white shadow-[0_24px_80px_rgba(0,0,0,0.14)]">
+        <div className="h-1 bg-[#ff6b6b]" />
+        <div className="grid gap-6 p-6 lg:grid-cols-[1fr_280px] lg:items-end">
           <div>
-            <div className="mb-3 inline-flex rounded-full bg-[#d9ff3f] px-3 py-1 text-xs font-bold text-black">
-              Daily operations
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#ffb4b4]/20 bg-[#ffd7d7]/10 px-3 py-1 text-xs font-bold text-[#ffd7d7]">
+              <AlertTriangle size={14} />
+              Operations console
             </div>
 
-            <h2 className="text-2xl font-semibold tracking-[-0.04em]">
-              Обработать день
-            </h2>
+            <h1 className="font-heading text-3xl font-semibold tracking-[-0.05em]">
+              Системные скрипты
+            </h1>
 
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-white/55">
-              Скрипт создаст summary чатов за выбранную дату, затем создаст
-              сигналы и пересчитает здоровье проекта, настроение клиента и
-              команды.
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-white/55">
+              Ручной запуск операций, которые массово меняют данные. Скрипты
+              выполняются на сервере в фоне, а эта страница показывает статус,
+              выбранные параметры и лог выполнения.
             </p>
           </div>
 
+          <div className="rounded-[22px] border border-white/10 bg-white/[0.04] p-4">
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-[#ffd7d7]">
+              <Activity size={14} />
+              Guardrails
+            </div>
+            <p className="mt-3 text-sm leading-6 text-white/50">
+              Одновременно запускается только одна операция. Опасные действия
+              требуют подтверждения перед стартом.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <ScriptPanel
+        eyebrow="Daily operations"
+        title="Обработать день"
+        description="Создать summary чатов за выбранную дату, затем создать сигналы и пересчитать здоровье проекта, настроение клиента и команды."
+        details="Используется для ежедневного запуска и ручного тестирования конкретной даты."
+        action={
           <button
             type="button"
             onClick={handleRunDailyOperations}
             disabled={activeKind !== null || !date}
-            className="inline-flex items-center gap-2 rounded-2xl bg-[#d9ff3f] px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-2xl bg-[#ffd7d7] px-4 py-2.5 text-sm font-semibold text-[#7f1d1d] transition hover:bg-[#ffbcbc] disabled:cursor-not-allowed disabled:opacity-60"
           >
             <CalendarDays size={16} />
             {activeKind === "daily_operations"
               ? "Выполняется..."
-              : "Запустить за дату"}
+              : "Запустить"}
           </button>
-        </div>
-
-        <div className="rounded-[24px] bg-white/8 p-4">
-          <label className="block text-xs font-bold uppercase tracking-wide text-white/35">
+        }
+      >
+        <div className="inline-flex flex-col rounded-[20px] border border-white/10 bg-white/[0.04] p-4">
+          <label className="text-xs font-bold uppercase tracking-wide text-white/35">
             Дата обработки
           </label>
           <input
             type="date"
             value={date}
             onChange={(event) => setDate(event.target.value)}
-            className="mt-2 h-12 rounded-2xl border border-white/10 bg-white px-4 text-sm font-semibold text-black outline-none"
+            className="mt-2 h-11 rounded-2xl border border-white/10 bg-white px-4 text-sm font-semibold text-black outline-none"
           />
         </div>
-      </section>
+      </ScriptPanel>
 
-      <section className="rounded-[34px] bg-[#1f1f1f] p-6 text-white shadow-[0_24px_80px_rgba(0,0,0,0.12)]">
-        <div className="flex items-start justify-between gap-6">
-          <div>
-            <div className="mb-3 inline-flex rounded-full bg-[#d9ff3f] px-3 py-1 text-xs font-bold text-black">
-              Signals rebuild
-            </div>
-
-            <h2 className="text-2xl font-semibold tracking-[-0.04em]">
-              Пересоздать автоматические сигналы
-            </h2>
-
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-white/55">
-              Скрипт удалит все сигналы, кроме ручных, затем заново
-              проанализирует старые встречи и создаст новые сигналы по
-              актуальным prompt и справочнику типов сигналов.
-            </p>
-
-            <div className="mt-4 rounded-[24px] bg-white/8 p-4 text-sm leading-6 text-white/65">
-              Что будет удалено: сигналы из встреч и чатов. <br />
-              Что останется: ручные сигналы менеджера.
-            </div>
-          </div>
-
+      <ScriptPanel
+        eyebrow="Signals rebuild"
+        title="Пересоздать автоматические сигналы"
+        description="Удалить все автоматические сигналы, затем заново проанализировать встречи и чаты по актуальному prompt и справочнику типов сигналов."
+        details="Ручные сигналы менеджера остаются. Автоматические сигналы из встреч и чатов будут пересозданы."
+        action={
           <button
             type="button"
             onClick={handleRun}
@@ -296,26 +336,15 @@ export default function ScriptsSettingsPage() {
             />
             {activeKind === "signals_rebuild" ? "Выполняется..." : "Запустить"}
           </button>
-        </div>
-      </section>
+        }
+      />
 
-      <section className="rounded-[34px] border border-[#ffd7d7] bg-white p-6 shadow-[0_24px_80px_rgba(0,0,0,0.06)]">
-        <div className="flex items-start justify-between gap-6">
-          <div>
-            <div className="mb-3 inline-flex rounded-full bg-[#ffd7d7] px-3 py-1 text-xs font-bold text-[#7f1d1d]">
-              Debug reset
-            </div>
-
-            <h2 className="text-2xl font-semibold tracking-[-0.04em] text-gray-950">
-              Сбросить показатели проектов
-            </h2>
-
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
-              Вернёт здоровье проектов к 100, риск к low, настроение клиента и
-              команды к neutral, а точки графика здоровья удалит.
-            </p>
-          </div>
-
+      <ScriptPanel
+        eyebrow="Debug reset"
+        title="Сбросить показатели проектов"
+        description="Вернуть здоровье проектов к 100, риск к low, настроение клиента и команды к neutral."
+        details="Также удаляются точки графика здоровья. Это отладочное действие перед повторным расчетом."
+        action={
           <button
             type="button"
             onClick={handleResetHealth}
@@ -326,10 +355,10 @@ export default function ScriptsSettingsPage() {
               size={16}
               className={activeKind === "reset_health" ? "animate-spin" : ""}
             />
-            {activeKind === "reset_health" ? "Выполняется..." : "Сбросить"}
+            {activeKind === "reset_health" ? "Выполняется..." : "Запустить"}
           </button>
-        </div>
-      </section>
+        }
+      />
 
       <section className="rounded-[34px] border border-gray-200 bg-white p-6 shadow-[0_24px_80px_rgba(0,0,0,0.06)]">
         <div className="mb-4 flex items-center justify-between gap-4">
