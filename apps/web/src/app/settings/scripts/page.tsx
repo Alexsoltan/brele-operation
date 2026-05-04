@@ -5,6 +5,7 @@ import { AlertTriangle, RotateCcw, Terminal } from "lucide-react";
 
 type ScriptResult = {
   ok: boolean;
+  error?: string;
   processedProjects?: number;
   totalProjects?: number;
   totalDays?: number;
@@ -34,10 +35,30 @@ export default function ScriptsSettingsPage() {
         method: "POST",
       });
 
-      const data = (await response.json()) as ScriptResult;
+      const text = await response.text();
+      let data: ScriptResult;
+
+      try {
+        data = JSON.parse(text) as ScriptResult;
+      } catch {
+        data = {
+          ok: false,
+          error: `Сервер вернул не JSON: HTTP ${response.status}`,
+          logs: [
+            `❌ Сервер вернул не JSON: HTTP ${response.status}`,
+            text.slice(0, 500),
+          ],
+        };
+      }
 
       setResult(data);
-      setLogs(Array.isArray(data.logs) ? data.logs : ["Готово"]);
+      setLogs(
+        Array.isArray(data.logs)
+          ? data.logs
+          : data.error
+            ? [`❌ ${data.error}`]
+            : ["Готово"],
+      );
     } catch (error) {
       setResult({ ok: false });
       setLogs(["❌ Ошибка запуска скрипта", String(error)]);

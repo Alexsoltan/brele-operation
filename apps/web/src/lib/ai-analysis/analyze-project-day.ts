@@ -161,7 +161,18 @@ export async function analyzeProjectDay(projectId: string, date: Date) {
   });
 
   if (!response.ok) {
-    throw new Error(`AI proxy failed: ${response.status}`);
+    const errorText = await response.text();
+
+    let details = errorText;
+
+    try {
+      const parsed = JSON.parse(errorText) as { details?: unknown; error?: unknown };
+      details = String(parsed.details ?? parsed.error ?? errorText);
+    } catch {
+      details = errorText.slice(0, 500);
+    }
+
+    throw new Error(`AI proxy failed: ${response.status}: ${details}`);
   }
 
   const data = (await response.json()) as AiProxyResponse;
