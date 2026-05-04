@@ -6,6 +6,7 @@ import { AlertTriangle, CalendarDays, RotateCcw, Terminal } from "lucide-react";
 type ScriptResult = {
   ok: boolean;
   error?: string;
+  status?: string;
   date?: string;
   processedProjects?: number;
   totalProjects?: number;
@@ -27,8 +28,45 @@ type ScriptResult = {
   logs?: string[];
 };
 
+type ScriptRun = {
+  id: string;
+  kind: string;
+  status: "queued" | "running" | "success" | "failed";
+  title: string;
+  input?: Record<string, unknown> | null;
+  result?: ScriptResult | null;
+  logs: string[];
+  error?: string | null;
+  createdAt: string;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+};
+
 function getTodayInputValue() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function getStatusLabel(result: ScriptResult) {
+  if (result.status === "queued") return "В очереди";
+  if (result.status === "running") return "Выполняется";
+  if (result.status === "success" || result.ok) return "Успешно";
+  return "Ошибка";
+}
+
+function getStatusClassName(result: ScriptResult) {
+  if (result.status === "queued" || result.status === "running") {
+    return "bg-black text-white";
+  }
+
+  if (result.status === "failed" || result.ok === false) {
+    return "bg-[#ffd7d7] text-[#7f1d1d]";
+  }
+
+  return "bg-[#d9ff3f] text-black";
 }
 
 export default function ScriptsSettingsPage() {
@@ -36,38 +74,61 @@ export default function ScriptsSettingsPage() {
   const [logs, setLogs] = useState<string[]>([]);
   const [result, setResult] = useState<ScriptResult | null>(null);
   const [date, setDate] = useState(getTodayInputValue);
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
 
-  async function parseScriptResponse(response: Response): Promise<ScriptResult> {
+  async function parseJsonResponse<T>(response: Response): Promise<T> {
     const text = await response.text();
 
     try {
-      return JSON.parse(text) as ScriptResult;
+      return JSON.parse(text) as T;
     } catch {
-      return {
-        ok: false,
-        error: `Сервер вернул не JSON: HTTP ${response.status}`,
-        logs: [
-          `❌ Сервер вернул не JSON: HTTP ${response.status}`,
-          text.slice(0, 500),
-        ],
-      };
+      throw new Error(`Сервер вернул не JSON: HTTP ${response.status}`);
     }
   }
 
-  function applyScriptResult(data: ScriptResult) {
-    setResult(data);
-    setLogs(
-      Array.isArray(data.logs)
-        ? data.logs
-        : data.error
-          ? [`❌ ${data.error}`]
-          : ["Готово"],
-    );
+  function resultFromRun(run: ScriptRun): ScriptResult {
+    return {
+      ...(run.result ?? {}),
+      ok: run.status === "success",
+      status: run.status,
+      error: run.error ?? run.result?.error,
+      logs: run.logs,
+    };
   }
 
-  async function runScript(
+  function applyScriptRun(run: ScriptRun) {
+    setActiveRunId(run.id);
+    setResult(resultFromRun(run));
+    setLogs(run.logs.length > 0 ? run.logs : ["Задача поставлена в очередь."]);
+  }
+
+  async function pollScriptRun(id: string) {
+    while (true) {
+      await sleep(2000);
+
+      const response = await fetch(`/api/script-runs/${id}`, {
+        cache: "no-store",
+      });
+      const data = await parseJsonResponse<{ ok: boolean; run?: ScriptRun }>(
+        response,
+      );
+
+      if (!data.ok || !data.run) {
+        throw new Error("Не удалось получить статус задачи");
+      }
+
+      applyScriptRun(data.run);
+
+      if (data.run.status === "success" || data.run.status === "failed") {
+        return;
+      }
+    }
+  }
+
+  async function startScriptRun(
     label: string,
-    request: () => Promise<Response>,
+    kind: string,
+    input?: Record<string, unknown>,
     confirmText?: string,
   ) {
     if (confirmText && !window.confirm(confirmText)) return;
@@ -75,13 +136,31 @@ export default function ScriptsSettingsPage() {
     setLoading(true);
     setLogs([`🚀 ${label}`]);
     setResult(null);
+    setActiveRunId(null);
 
     try {
-      const response = await request();
-      const data = await parseScriptResponse(response);
-      applyScriptResult(data);
+      const response = await fetch("/api/script-runs", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          kind,
+          input: input ?? {},
+        }),
+      });
+      const data = await parseJsonResponse<{ ok: boolean; run?: ScriptRun }>(
+        response,
+      );
+
+      if (!response.ok || !data.ok || !data.run) {
+        throw new Error("Не удалось поставить задачу в очередь");
+      }
+
+      applyScriptRun(data.run);
+      await pollScriptRun(data.run.id);
     } catch (error) {
-      setResult({ ok: false });
+      setResult({ ok: false, status: "failed" });
       setLogs(["❌ Ошибка запуска скрипта", String(error)]);
     } finally {
       setLoading(false);
@@ -89,35 +168,27 @@ export default function ScriptsSettingsPage() {
   }
 
   async function handleRunDailyOperations() {
-    await runScript("Запускаем дневную обработку...", () =>
-      fetch("/api/daily-operations/run", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ date }),
-      }),
+    await startScriptRun(
+      "Запускаем дневную обработку...",
+      "daily_operations",
+      { date },
     );
   }
 
   async function handleResetHealth() {
-    await runScript(
+    await startScriptRun(
       "Сбрасываем показатели проектов...",
-      () =>
-        fetch("/api/daily-operations/reset-health", {
-          method: "POST",
-        }),
+      "reset_health",
+      {},
       "Сбросить здоровье, риск и настроения всех проектов к базовому уровню?",
     );
   }
 
   async function handleRun() {
-    await runScript(
+    await startScriptRun(
       "Запускаем полный rebuild...",
-      () =>
-        fetch("/api/ai-analysis/recalculate", {
-          method: "POST",
-        }),
+      "signals_rebuild",
+      {},
       "Удалить все автоматические сигналы и пересоздать их заново?",
     );
   }
@@ -137,6 +208,8 @@ export default function ScriptsSettingsPage() {
         <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
           Временный раздел для отладки системных операций. Эти действия могут
           массово менять данные, поэтому запускаем их вручную и осознанно.
+          Долгие операции выполняются на сервере в фоне, а эта страница только
+          показывает их статус и лог.
         </p>
       </section>
 
@@ -260,8 +333,12 @@ export default function ScriptsSettingsPage() {
           </div>
 
           {result ? (
-            <div className="rounded-2xl bg-[#d9ff3f] px-4 py-2 text-sm font-bold text-black">
-              {result.ok ? "Успешно" : "Ошибка"}
+            <div
+              className={`rounded-2xl px-4 py-2 text-sm font-bold ${getStatusClassName(
+                result,
+              )}`}
+            >
+              {getStatusLabel(result)}
             </div>
           ) : null}
         </div>
@@ -309,9 +386,16 @@ export default function ScriptsSettingsPage() {
             <div className="rounded-2xl bg-[#f3f3f1] p-4">
               <div className="text-xs text-gray-500">Статус</div>
               <div className="mt-1 text-2xl font-semibold">
-                {result.ok ? "OK" : "Fail"}
+                {getStatusLabel(result)}
               </div>
             </div>
+          </div>
+        ) : null}
+
+        {activeRunId ? (
+          <div className="mb-4 rounded-2xl bg-[#f3f3f1] p-4 text-sm leading-6 text-gray-600">
+            Запуск: <span className="font-mono text-gray-950">{activeRunId}</span>
+            . Вкладку можно закрыть, задача продолжит выполняться на сервере.
           </div>
         ) : null}
 
