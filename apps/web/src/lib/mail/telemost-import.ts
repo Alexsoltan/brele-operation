@@ -67,6 +67,26 @@ function getTodayStart() {
   return date;
 }
 
+function getErrorMessage(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return String(error);
+  }
+
+  const details = error as {
+    message?: string;
+    response?: string;
+    responseText?: string;
+    code?: string;
+  };
+
+  return (
+    details.responseText ||
+    details.response ||
+    [details.code, details.message].filter(Boolean).join(": ") ||
+    String(error)
+  );
+}
+
 export async function importTelemostMeetingDrafts(options: ImportOptions = {}) {
   const { ImapFlow } = await import("imapflow");
   const { simpleParser } = await import("mailparser");
@@ -109,105 +129,125 @@ export async function importTelemostMeetingDrafts(options: ImportOptions = {}) {
 
       try {
         const firstSyncSince = account.lastSyncUid ? null : getTodayStart();
-        const range = account.lastSyncUid ? `${account.lastSyncUid + 1}:*` : "1:*";
+        const mailbox = client.mailbox as
+          | { exists?: number; uidNext?: number }
+          | false
+          | undefined;
+        const messageCount = mailbox && mailbox.exists ? mailbox.exists : 0;
+        const uidNext = mailbox && mailbox.uidNext ? mailbox.uidNext : null;
+        const hasNewMessages =
+          !account.lastSyncUid ||
+          !uidNext ||
+          account.lastSyncUid < uidNext - 1;
 
-        for await (const message of client.fetch(
-          range,
-          {
-            uid: true,
-            envelope: true,
-            internalDate: true,
-            source: true,
-          },
-          { uid: true },
+        if (messageCount === 0 || !hasNewMessages) {
+          skipped += 1;
+        } else {
+          const range = account.lastSyncUid
+            ? `${account.lastSyncUid + 1}:*`
+            : "1:*";
+
+          for await (const message of client.fetch(
+            range,
+            {
+              uid: true,
+              envelope: true,
+              internalDate: true,
+              source: true,
+            },
+            { uid: true },
           )) {
-          maxUid = Math.max(maxUid, Number(message.uid ?? 0));
+            maxUid = Math.max(maxUid, Number(message.uid ?? 0));
 
-          const messageDate = message.internalDate ?? message.envelope?.date ?? null;
+            const messageDate =
+              message.internalDate ?? message.envelope?.date ?? null;
 
-          if (firstSyncSince && messageDate && messageDate < firstSyncSince) {
-            skipped += 1;
-            continue;
-          }
+            if (firstSyncSince && messageDate && messageDate < firstSyncSince) {
+              skipped += 1;
+              continue;
+            }
 
-          if (!message.source) {
-            skipped += 1;
-            continue;
-          }
+            if (!message.source) {
+              skipped += 1;
+              continue;
+            }
 
-          const parsed = (await simpleParser(message.source)) as ParsedMail;
-          const subject = parsed.subject ?? "";
-          const from = getAddressValue(parsed.from);
-          const fromEmail = from?.address ?? null;
+            const parsed = (await simpleParser(message.source)) as ParsedMail;
+            const subject = parsed.subject ?? "";
+            const from = getAddressValue(parsed.from);
+            const fromEmail = from?.address ?? null;
 
-          if (!isTelemostMessage({ fromEmail, subject })) {
-            skipped += 1;
-            continue;
-          }
+            if (!isTelemostMessage({ fromEmail, subject })) {
+              skipped += 1;
+              continue;
+            }
 
-          const txtAttachments = parsed.attachments.filter((attachment: Attachment) => {
-            const fileName = attachment.filename ?? "";
-            return (
-              fileName.toLowerCase().endsWith(".txt") ||
-              attachment.contentType === "text/plain"
+            const txtAttachments = parsed.attachments.filter(
+              (attachment: Attachment) => {
+                const fileName = attachment.filename ?? "";
+                return (
+                  fileName.toLowerCase().endsWith(".txt") ||
+                  attachment.contentType === "text/plain"
+                );
+              },
             );
-          });
 
-          if (txtAttachments.length === 0) {
-            skipped += 1;
-            continue;
-          }
-
-          for (const attachment of txtAttachments) {
-            const transcriptText = getTextContent(attachment.content).trim();
-
-            if (!transcriptText) {
+            if (txtAttachments.length === 0) {
               skipped += 1;
               continue;
             }
 
-            const telemostMeetingUrl = extractTelemostUrl(transcriptText);
-            const attachmentFileName =
-              attachment.filename ?? `telemost-${message.uid}.txt`;
-            const contentHash = createContentHash({
-              messageId: parsed.messageId,
-              attachmentFileName,
-              transcriptText,
-            });
+            for (const attachment of txtAttachments) {
+              const transcriptText = getTextContent(attachment.content).trim();
 
-            const existing = await prisma.inboundMeetingDraft.findFirst({
-              where: {
-                workspaceId: account.workspaceId,
-                contentHash,
-              },
-            });
+              if (!transcriptText) {
+                skipped += 1;
+                continue;
+              }
 
-            if (existing) {
-              skipped += 1;
-              continue;
-            }
-
-            await prisma.inboundMeetingDraft.create({
-              data: {
-                workspaceId: account.workspaceId,
-                mailAccountId: account.id,
-                managerUserId: account.userId,
-                sourceEmail: account.email,
-                fromEmail,
-                fromName: from?.name ?? null,
-                emailSubject: subject || "Конспект встречи",
-                messageId: parsed.messageId ?? null,
-                emailDate: parsed.date ?? null,
-                receivedAt: message.internalDate ?? null,
+              const telemostMeetingUrl = extractTelemostUrl(transcriptText);
+              const attachmentFileName =
+                attachment.filename ?? `telemost-${message.uid}.txt`;
+              const contentHash = createContentHash({
+                messageId: parsed.messageId,
                 attachmentFileName,
-                contentHash,
-                telemostMeetingUrl,
-                telemostMeetingId: extractTelemostId(telemostMeetingUrl),
                 transcriptText,
-              },
-            });
+              });
 
-            imported += 1;
+              const existing = await prisma.inboundMeetingDraft.findFirst({
+                where: {
+                  workspaceId: account.workspaceId,
+                  contentHash,
+                },
+              });
+
+              if (existing) {
+                skipped += 1;
+                continue;
+              }
+
+              await prisma.inboundMeetingDraft.create({
+                data: {
+                  workspaceId: account.workspaceId,
+                  mailAccountId: account.id,
+                  managerUserId: account.userId,
+                  sourceEmail: account.email,
+                  fromEmail,
+                  fromName: from?.name ?? null,
+                  emailSubject: subject || "Конспект встречи",
+                  messageId: parsed.messageId ?? null,
+                  emailDate: parsed.date ?? null,
+                  receivedAt: message.internalDate ?? null,
+                  attachmentFileName,
+                  contentHash,
+                  telemostMeetingUrl,
+                  telemostMeetingId: extractTelemostId(telemostMeetingUrl),
+                  transcriptText,
+                },
+              });
+
+              imported += 1;
+            }
           }
         }
       } finally {
@@ -229,7 +269,7 @@ export async function importTelemostMeetingDrafts(options: ImportOptions = {}) {
 
       results.push({ accountId: account.id, email: account.email, imported, skipped });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = getErrorMessage(error);
 
       await prisma.mailAccount.update({
         where: {
