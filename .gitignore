@@ -1,4 +1,5 @@
 node_modules
+node_modules_old
 .pnpm-store
 
 .env
@@ -9,6 +10,7 @@ node_modules
 dist
 build
 .next
+.next-broken-*
 out
 
 coverage
