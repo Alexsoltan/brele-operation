@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { requireCanManageMeetings } from "@/lib/auth";
+import { analyzeAndSaveMeeting } from "@/lib/meeting-analysis";
 import { prisma } from "@/lib/prisma";
-import { recalculateProjectHealth } from "@/lib/recalculate-project-health";
 
 function parseDraftDate(value: Date | null, fallback: Date) {
   if (!value) return fallback;
@@ -103,12 +103,12 @@ export async function POST(
     },
   });
 
-  await recalculateProjectHealth(projectId, user.workspaceId);
+  const analyzedMeeting = await analyzeAndSaveMeeting(meeting.id);
 
   return NextResponse.json(
     {
       draft: updatedDraft,
-      meeting,
+      meeting: analyzedMeeting,
     },
     { status: 201 },
   );

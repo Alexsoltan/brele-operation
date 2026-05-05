@@ -149,23 +149,8 @@ export default function MeetingDetailsPage() {
     setIsReanalyzing(true);
 
     try {
-      await patchMeeting({
-        summary: "AI-анализ встречи выполняется...",
-        highlights: [],
-        analysisStatus: "pending",
-        modelName: "",
-        analyzedAt: null,
-      });
-
-      const analysisResponse = await fetch("/api/analyze-meeting", {
+      const analysisResponse = await fetch(`/api/meetings/${meeting.id}/analyze`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          text: meeting.transcriptText,
-          meetingTypeId: meeting.meetingTypeId,
-        }),
       });
 
       if (!analysisResponse.ok) {
@@ -174,20 +159,7 @@ export default function MeetingDetailsPage() {
 
       const result = await analysisResponse.json();
 
-      await patchMeeting({
-        summary: result.summary ?? "Саммари не получено.",
-        highlights: Array.isArray(result.highlights) ? result.highlights : [],
-        clientMood:
-          meeting.hasClient === false
-            ? "neutral"
-            : result.clientMood ?? "neutral",
-        teamMood: result.teamMood ?? "neutral",
-        risk: result.risk ?? "low",
-        hasClient: result.hasClient ?? meeting.hasClient ?? true,
-        analysisStatus: "analyzed",
-        modelName: result.modelName ?? "AI",
-        analyzedAt: new Date().toISOString(),
-      });
+      setMeeting(result);
     } catch {
       await patchMeeting({
         summary:

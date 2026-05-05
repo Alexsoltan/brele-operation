@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireCanManageMeetings, requireCanRead } from "@/lib/auth";
+import { analyzeAndSaveMeeting } from "@/lib/meeting-analysis";
 import { recalculateProjectHealth } from "@/lib/recalculate-project-health";
 
 export async function GET(req: NextRequest) {
@@ -107,6 +108,15 @@ export async function POST(req: NextRequest) {
       type: true,
     },
   });
+
+  if (
+    meeting.analysisStatus === "pending" &&
+    meeting.transcriptText?.trim()
+  ) {
+    const analyzedMeeting = await analyzeAndSaveMeeting(meeting.id);
+
+    return NextResponse.json(analyzedMeeting, { status: 201 });
+  }
 
   await recalculateProjectHealth(projectId, user.workspaceId);
 

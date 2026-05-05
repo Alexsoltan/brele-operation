@@ -181,79 +181,12 @@ export function AddMeetingModal({
         throw new Error("Meeting creation failed");
       }
 
-      const createdMeeting = await createResponse.json();
-
       await reloadMeetings();
       onClose();
 
       setTranscriptText("");
       setFileName("");
       setDate(getLocalDateInputValue());
-
-      try {
-        const analysisResponse = await fetch("/api/analyze-meeting", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            text: transcript,
-            meetingTypeId,
-          }),
-        });
-
-        if (!analysisResponse.ok) {
-          throw new Error("AI analysis failed");
-        }
-
-        const result = await analysisResponse.json();
-
-        await fetch(`/api/meetings/${createdMeeting.id}`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            summary: result.summary ?? "Саммари не получено.",
-            highlights: Array.isArray(result.highlights)
-              ? result.highlights
-              : [],
-            signals: Array.isArray(result.signals) ? result.signals : [],
-            clientMood: hasClient ? result.clientMood ?? "neutral" : "neutral",
-            teamMood: result.teamMood ?? "neutral",
-            risk: result.risk ?? "low",
-            hasClient,
-            analysisStatus: "analyzed",
-            modelName: result.modelName ?? "AI",
-            analyzedAt: new Date().toISOString(),
-          }),
-        });
-
-        await reloadMeetings();
-      } catch {
-        await fetch(`/api/meetings/${createdMeeting.id}`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            summary:
-              "AI-анализ не удалось выполнить. Встреча сохранена, можно повторить анализ позже.",
-            highlights: [
-              "AI-анализ не завершился. Можно повторить позже или обработать встречу вручную.",
-            ],
-            clientMood: "neutral",
-            teamMood: "neutral",
-            risk: "medium",
-            hasClient,
-            analysisStatus: "error",
-            modelName: "",
-            analyzedAt: null,
-          }),
-        });
-
-        await reloadMeetings();
-      }
     } finally {
       setIsSubmitting(false);
     }

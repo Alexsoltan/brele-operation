@@ -78,55 +78,6 @@ function DraftCard({
     }
   }, [meetingTypeId, meetingTypes]);
 
-  async function analyzeMeeting(meetingId: string) {
-    const analysisResponse = await fetch("/api/analyze-meeting", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        text: draft.transcriptText,
-        meetingTypeId,
-      }),
-    });
-
-    if (!analysisResponse.ok) {
-      await fetch(`/api/meetings/${meetingId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          summary:
-            "AI-анализ не удалось выполнить. Встреча сохранена, можно повторить анализ позже.",
-          highlights: [
-            "AI-анализ не завершился. Можно повторить позже или обработать встречу вручную.",
-          ],
-          clientMood: "neutral",
-          teamMood: "neutral",
-          risk: "medium",
-          analysisStatus: "error",
-          modelName: "",
-          analyzedAt: null,
-        }),
-      });
-      return;
-    }
-
-    const result = await analysisResponse.json();
-
-    await fetch(`/api/meetings/${meetingId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        summary: result.summary ?? "Саммари не получено.",
-        highlights: Array.isArray(result.highlights) ? result.highlights : [],
-        clientMood: result.clientMood ?? "neutral",
-        teamMood: result.teamMood ?? "neutral",
-        risk: result.risk ?? "low",
-        analysisStatus: "analyzed",
-        modelName: result.modelName ?? "AI",
-        analyzedAt: new Date().toISOString(),
-      }),
-    });
-  }
-
   async function handleLink() {
     if (!projectId || !meetingTypeId) return;
 
@@ -145,8 +96,6 @@ function DraftCard({
 
       if (!response.ok) throw new Error("Draft link failed");
 
-      const data = await response.json();
-      await analyzeMeeting(data.meeting.id);
       onChanged();
     } finally {
       setIsSubmitting(false);

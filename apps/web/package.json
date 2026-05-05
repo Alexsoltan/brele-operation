@@ -12,7 +12,8 @@
     "daily:chat-summaries": "tsx scripts/generate-daily-chat-summaries.ts",
     "daily:project-signals": "tsx scripts/generate-daily-project-signals.ts",
     "daily:operations": "tsx scripts/generate-daily-operations.ts",
-    "import:telemost-mail": "tsx scripts/import-telemost-mail.ts"
+    "import:telemost-mail": "tsx scripts/import-telemost-mail.ts",
+    "analyze:pending-meetings": "tsx scripts/analyze-pending-meetings.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
