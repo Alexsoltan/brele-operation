@@ -38,6 +38,13 @@ enum MeetingAnalysisStatus {
   error
 }
 
+enum InboundMeetingStatus {
+  new
+  linked
+  ignored
+  error
+}
+
 enum ProjectChatParticipantRole {
   client
   team
@@ -120,6 +127,8 @@ model Workspace {
   users                 User[]
   projects              Project[]
   meetings              Meeting[]
+  mailAccounts          MailAccount[]
+  inboundMeetingDrafts  InboundMeetingDraft[]
   meetingTypes          MeetingType[]
   projectScoringConfigs ProjectScoringConfig[]
   promptConfigs         PromptConfig[]
@@ -145,6 +154,8 @@ model User {
 
   workspace    Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   scriptRuns   ScriptRun[]
+  mailAccounts MailAccount[]
+  inboundMeetingDrafts InboundMeetingDraft[]
 
   @@index([workspaceId])
   @@index([role])
@@ -178,6 +189,89 @@ model ScriptRun {
   @@index([kind])
   @@index([status])
   @@index([createdAt])
+}
+
+model MailAccount {
+  id          String @id @default(cuid())
+  workspaceId String?
+  userId      String?
+
+  email       String
+  displayName String?
+
+  imapHost   String
+  imapPort   Int     @default(993)
+  imapSecure Boolean @default(true)
+  username   String
+
+  encryptedPassword String
+  passwordNonce     String
+  passwordAuthTag   String
+
+  isActive    Boolean @default(true)
+  lastSyncAt  DateTime?
+  lastSyncUid Int?
+  syncError   String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  drafts    InboundMeetingDraft[]
+
+  @@unique([workspaceId, email])
+  @@index([workspaceId])
+  @@index([userId])
+  @@index([isActive])
+  @@index([deletedAt])
+}
+
+model InboundMeetingDraft {
+  id            String @id @default(cuid())
+  workspaceId   String?
+  mailAccountId String?
+  managerUserId String?
+  linkedMeetingId String?
+
+  status InboundMeetingStatus @default(new)
+
+  sourceEmail String
+  fromEmail   String?
+  fromName    String?
+  emailSubject String
+  messageId    String?
+  emailDate    DateTime?
+  receivedAt   DateTime?
+
+  attachmentFileName String
+  contentHash        String
+  telemostMeetingUrl String?
+  telemostMeetingId  String?
+  transcriptText     String
+
+  error String?
+
+  importedAt DateTime @default(now())
+  processedAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  deletedAt  DateTime?
+
+  workspace     Workspace?   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  mailAccount   MailAccount? @relation(fields: [mailAccountId], references: [id], onDelete: SetNull)
+  manager       User?        @relation(fields: [managerUserId], references: [id], onDelete: SetNull)
+  linkedMeeting Meeting?     @relation(fields: [linkedMeetingId], references: [id], onDelete: SetNull)
+
+  @@unique([workspaceId, contentHash])
+  @@index([workspaceId])
+  @@index([mailAccountId])
+  @@index([managerUserId])
+  @@index([linkedMeetingId])
+  @@index([status])
+  @@index([emailDate])
+  @@index([deletedAt])
 }
 model Project {
   id          String        @id @default(cuid())
@@ -268,6 +362,7 @@ model Meeting {
   workspace Workspace?   @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   project   Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   type      MeetingType? @relation(fields: [meetingTypeId], references: [id], onDelete: SetNull)
+  inboundDrafts InboundMeetingDraft[]
 
   @@index([workspaceId])
   @@index([projectId])

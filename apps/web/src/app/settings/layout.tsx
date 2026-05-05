@@ -25,6 +25,11 @@ const tabs = [
     label: "Скрипты",
   },
   {
+    key: "/settings/mail",
+    href: "/settings/mail",
+    label: "Почта",
+  },
+  {
     key: "/settings/users",
     href: "/settings/users",
     label: "Пользователи",

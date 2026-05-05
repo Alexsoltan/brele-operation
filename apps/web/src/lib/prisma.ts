@@ -10,6 +10,16 @@ const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL,
 });
 
+const requiredDelegates = ["mailAccount", "inboundMeetingDraft"];
+
+function hasRequiredDelegates(client: any) {
+  return requiredDelegates.every((delegate) => client?.[delegate]);
+}
+
+if (globalForPrisma.prisma && !hasRequiredDelegates(globalForPrisma.prisma)) {
+  globalForPrisma.prisma = undefined;
+}
+
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({

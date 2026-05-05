@@ -11,13 +11,16 @@
     "check": "tsc --noEmit",
     "daily:chat-summaries": "tsx scripts/generate-daily-chat-summaries.ts",
     "daily:project-signals": "tsx scripts/generate-daily-project-signals.ts",
-    "daily:operations": "tsx scripts/generate-daily-operations.ts"
+    "daily:operations": "tsx scripts/generate-daily-operations.ts",
+    "import:telemost-mail": "tsx scripts/import-telemost-mail.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "bcrypt": "^6.0.0",
+    "imapflow": "^1.1.1",
     "lucide-react": "0.468.0",
+    "mailparser": "^3.7.2",
     "next": "14.2.23",
     "pg": "^8.20.0",
     "react": "18.3.1",
@@ -25,6 +28,7 @@
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
+    "@types/mailparser": "^3.4.6",
     "@types/node": "20.17.10",
     "@types/pg": "^8.20.0",
     "@types/react": "18.3.12",
