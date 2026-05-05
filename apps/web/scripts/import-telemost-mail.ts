@@ -1,8 +1,11 @@
-import { importTelemostMeetingDrafts } from "@/lib/mail/telemost-import";
 import { loadScriptEnv } from "./script-utils";
 
 async function main() {
   loadScriptEnv();
+
+  const { importTelemostMeetingDrafts } = await import(
+    "@/lib/mail/telemost-import"
+  );
 
   const results = await importTelemostMeetingDrafts();
 
