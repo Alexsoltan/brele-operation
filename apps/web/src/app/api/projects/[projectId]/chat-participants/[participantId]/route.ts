@@ -9,7 +9,7 @@ export async function PATCH(
   },
 ) {
   const user = await requireCanManageProjects();
-  const { participantId } = await context.params;
+  const { projectId, participantId } = await context.params;
   const body = await req.json();
 
   const role = String(body?.role ?? "");
@@ -21,14 +21,43 @@ export async function PATCH(
     );
   }
 
-  const participant = await prisma.projectChatParticipant.update({
+  const participant = await prisma.projectChatParticipant.findFirst({
     where: {
       id: participantId,
+      chat: {
+        projectId,
+        project: {
+          workspaceId: user.workspaceId,
+        },
+      },
+    },
+  });
+
+  if (!participant) {
+    return NextResponse.json(
+      { error: "Participant not found" },
+      { status: 404 },
+    );
+  }
+
+  await prisma.projectChatParticipant.updateMany({
+    where: {
+      telegramUserId: participant.telegramUserId,
+      chat: {
+        projectId,
+        project: {
+          workspaceId: user.workspaceId,
+        },
+      },
     },
     data: {
       role,
     },
   });
 
-  return NextResponse.json(participant);
+  return NextResponse.json({
+    ...participant,
+    role,
+    updatedAt: new Date().toISOString(),
+  });
 }

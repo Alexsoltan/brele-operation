@@ -2,18 +2,27 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import {
+  DashboardNotificationCenter,
+  type DashboardSignalNotification,
+} from "@/components/dashboard-notification-center";
 import { PageTitle } from "@/components/page-title";
 import { ProjectDashboardCard } from "@/components/project-dashboard-card";
-import type { Meeting, Project } from "@/lib/types";
+import type { Meeting, Project, ProjectSignal } from "@/lib/types";
 
 export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [meetingsByProject, setMeetingsByProject] = useState<
     Record<string, Meeting[]>
   >({});
+  const [signals, setSignals] = useState<DashboardSignalNotification[]>([]);
+  const [isNotificationCenterOpen, setIsNotificationCenterOpen] =
+    useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadDashboard() {
       try {
         const [projectsResponse, meetingsResponse] = await Promise.all([
@@ -39,15 +48,68 @@ export default function DashboardPage() {
           {},
         );
 
+        if (cancelled) return;
+
         setProjects(activeProjects);
         setMeetingsByProject(groupedMeetings);
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
 
     loadDashboard();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSignals() {
+      const signalGroups = await Promise.all(
+        projects.map(async (project) => {
+          try {
+            const response = await fetch(`/api/projects/${project.id}/signals`);
+
+            if (!response.ok) return [];
+
+            const projectSignals = (await response.json()) as ProjectSignal[];
+
+            return projectSignals.map((signal) => ({
+              ...signal,
+              projectName: project.name,
+            }));
+          } catch {
+            return [];
+          }
+        }),
+      );
+
+      if (cancelled) return;
+
+      setSignals(
+        signalGroups
+          .flat()
+          .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
+          .slice(0, 12),
+      );
+    }
+
+    if (projects.length === 0) {
+      setSignals([]);
+      return;
+    }
+
+    loadSignals();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projects]);
 
   const sortedProjects = useMemo(() => {
     return [...projects].sort((a, b) => {
@@ -61,12 +123,23 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-7">
-      <header>
-        <PageTitle>Состояние проектов</PageTitle>
+      <header className="flex items-start justify-between gap-5">
+        <div>
+          <PageTitle>Состояние проектов</PageTitle>
 
-        <p className="mt-1 text-sm text-gray-500">
-          Обзор активных проектов, рисков и здоровья проекта
-        </p>
+          <p className="mt-1 text-sm text-gray-500">
+            Обзор активных проектов, рисков и здоровья проекта
+          </p>
+        </div>
+
+        <DashboardNotificationCenter
+          isOpen={isNotificationCenterOpen}
+          signals={signals}
+          onClose={() => setIsNotificationCenterOpen(false)}
+          onToggle={() =>
+            setIsNotificationCenterOpen((currentValue) => !currentValue)
+          }
+        />
       </header>
 
       {sortedProjects.length === 0 ? (

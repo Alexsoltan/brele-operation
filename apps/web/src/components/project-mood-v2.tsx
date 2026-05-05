@@ -51,8 +51,15 @@ function trendIcon(delta: number) {
 }
 
 function formatShortDate(value: string) {
+  const date = new Date(value);
+
+  return `${String(date.getDate()).padStart(2, "0")}.${String(
+    date.getMonth() + 1,
+  ).padStart(2, "0")}`;
+}
+
+function formatMonthTick(value: string) {
   return new Date(value).toLocaleDateString("ru-RU", {
-    day: "2-digit",
     month: "short",
   });
 }
@@ -128,12 +135,16 @@ function getDateTicks(range: Range, rangeStart: Date, rangeEnd: Date) {
   }
 
   if (range === "month") {
-    pushTick(rangeStart);
-
     let cursor = nextMonday(rangeStart);
 
     while (cursor < rangeEnd) {
-      pushTick(cursor);
+      const daysToRangeEnd =
+        (rangeEnd.getTime() - cursor.getTime()) / (1000 * 60 * 60 * 24);
+
+      if (daysToRangeEnd >= 3) {
+        pushTick(cursor);
+      }
+
       cursor = addDays(cursor, 7);
     }
 
@@ -142,16 +153,16 @@ function getDateTicks(range: Range, rangeStart: Date, rangeEnd: Date) {
     return ticks;
   }
 
-  pushTick(rangeStart);
+  let cursor = startOfMonth(rangeStart);
 
-  let cursor = addMonths(startOfMonth(rangeStart), 1);
+  if (cursor < rangeStart) {
+    cursor = addMonths(cursor, 1);
+  }
 
   while (cursor < rangeEnd) {
     pushTick(cursor);
     cursor = addMonths(cursor, 1);
   }
-
-  pushTick(rangeEnd);
 
   return ticks;
 }
@@ -277,7 +288,7 @@ export function ProjectMoodV2({
   project: Project;
   meetings: Meeting[];
 }) {
-  const [range, setRange] = useState<Range>("month");
+  const [range, setRange] = useState<Range>("week");
 
   const sortedMeetings = useMemo(() => {
     return [...meetings].sort((a, b) => a.date.localeCompare(b.date));
@@ -467,7 +478,7 @@ export function ProjectMoodV2({
           <div className="relative h-[280px] overflow-hidden rounded-[30px] bg-[#1f1f1f]">
             <div className="absolute left-6 right-6 top-[33%] h-px bg-white/10" />
             <div className="absolute left-6 right-6 top-[66%] h-px bg-white/10" />
-            <div className="absolute bottom-10 left-6 right-6 h-px bg-white/12" />
+            <div className="absolute bottom-7 left-6 right-6 h-px bg-white/25" />
 
             <svg
               viewBox="0 0 100 100"
@@ -496,7 +507,9 @@ export function ProjectMoodV2({
             </svg>
 
             <div className="absolute inset-x-6 bottom-10 top-6">
-              {clientLinePoints.map((point) => (
+              {clientLinePoints
+                .filter((point) => point.id !== "baseline")
+                .map((point) => (
                 <div
                   key={`client-${point.id}`}
                   className="absolute h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#d9ff3f] bg-[#1f1f1f] shadow-[0_0_0_3px_rgba(31,31,31,0.95)]"
@@ -508,7 +521,9 @@ export function ProjectMoodV2({
                 />
               ))}
 
-              {teamLinePoints.map((point) => (
+              {teamLinePoints
+                .filter((point) => point.id !== "baseline")
+                .map((point) => (
                 <div
                   key={`team-${point.id}`}
                   className="absolute h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#8f7cff] bg-[#1f1f1f] shadow-[0_0_0_3px_rgba(31,31,31,0.95)]"
@@ -537,7 +552,9 @@ export function ProjectMoodV2({
                     left: `${point.x}%`,
                   }}
                 >
-                  {formatShortDate(point.date)}
+                  {range === "quarter" || range === "year"
+                    ? formatMonthTick(point.date)
+                    : formatShortDate(point.date)}
                 </span>
               ))}
             </div>

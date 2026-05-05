@@ -27,6 +27,88 @@ function normalizeParam(value: string | string[] | undefined) {
   return value ?? "";
 }
 
+function participantDisplayName(participant: Participant) {
+  return (
+    participant.name ||
+    (participant.username ? `@${participant.username}` : "Без имени")
+  );
+}
+
+function roleLabel(role: ParticipantRole) {
+  if (role === "client") return "Клиент";
+  if (role === "team") return "Команда";
+  if (role === "ignore") return "Игнор";
+  return "Выбрать";
+}
+
+function sortParticipants(participants: Participant[]) {
+  return [...participants].sort((a, b) =>
+    participantDisplayName(a).localeCompare(participantDisplayName(b), "ru"),
+  );
+}
+
+function ParticipantSection({
+  label,
+  participants,
+  onRoleChange,
+}: {
+  label?: string;
+  participants: Participant[];
+  onRoleChange: (id: string, role: ParticipantRole) => void;
+}) {
+  if (participants.length === 0) return null;
+
+  return (
+    <div className="space-y-1.5">
+      {label ? (
+        <div className="flex items-center gap-2 px-1 pt-1">
+          <div className="h-px flex-1 bg-gray-200" />
+          <div className="text-[11px] font-medium text-gray-400">{label}</div>
+          <div className="h-px flex-1 bg-gray-200" />
+        </div>
+      ) : null}
+
+      {participants.map((participant) => {
+        const name = participantDisplayName(participant);
+
+        return (
+          <div
+            key={participant.id}
+            className="flex items-center gap-3 rounded-2xl bg-[#fbfbfa] px-3 py-2"
+          >
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-medium text-gray-950">
+                {name}
+              </div>
+              {participant.username ? (
+                <div className="truncate text-xs text-gray-400">
+                  @{participant.username}
+                </div>
+              ) : null}
+            </div>
+
+            <select
+              value={participant.role}
+              onChange={(event) =>
+                onRoleChange(participant.id, event.target.value as ParticipantRole)
+              }
+              className="h-9 shrink-0 rounded-xl border border-gray-200 bg-white px-2.5 text-xs font-medium text-gray-700 outline-none transition hover:border-gray-300 focus:border-black"
+            >
+              {(["unknown", "client", "team", "ignore"] as ParticipantRole[]).map(
+                (role) => (
+                  <option key={role} value={role}>
+                    {roleLabel(role)}
+                  </option>
+                ),
+              )}
+            </select>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function ProjectChatsPage() {
   const params = useParams();
   const projectId = normalizeParam(params?.projectId);
@@ -93,6 +175,21 @@ export default function ProjectChatsPage() {
       </div>
     );
   }
+
+  const participantsByRole = {
+    unknown: sortParticipants(
+      participants.filter((participant) => participant.role === "unknown"),
+    ),
+    client: sortParticipants(
+      participants.filter((participant) => participant.role === "client"),
+    ),
+    team: sortParticipants(
+      participants.filter((participant) => participant.role === "team"),
+    ),
+    ignore: sortParticipants(
+      participants.filter((participant) => participant.role === "ignore"),
+    ),
+  };
 
     return (
     <div className="grid grid-cols-[1fr_340px] gap-6">
@@ -219,57 +316,27 @@ export default function ProjectChatsPage() {
           Участники появятся после первых сообщений.
         </div>
       ) : (
-        participants.map((participant) => {
-          const name =
-            participant.name ||
-            (participant.username
-              ? `@${participant.username}`
-              : "Без имени");
-
-          return (
-            <div
-              key={participant.id}
-              className="rounded-3xl border border-gray-100 bg-[#fbfbfa] p-3"
-            >
-              <div className="min-w-0 text-sm font-medium text-gray-950">
-                <div className="truncate">{name}</div>
-                {participant.username ? (
-                  <div className="truncate text-xs font-normal text-gray-400">
-                    @{participant.username}
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="mt-3 grid grid-cols-3 gap-1">
-                {(["client", "team", "ignore"] as ParticipantRole[]).map(
-                  (role) => {
-                    const active = participant.role === role;
-
-                    return (
-                      <button
-                        key={role}
-                        type="button"
-                        onClick={() => updateRole(participant.id, role)}
-                        className={[
-                          "rounded-xl border px-2 py-1.5 text-xs font-medium transition",
-                          active
-                            ? "border-black bg-black text-white"
-                            : "border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:text-black",
-                        ].join(" ")}
-                      >
-                        {role === "client"
-                          ? "Клиент"
-                          : role === "team"
-                          ? "Команда"
-                          : "Игнор"}
-                      </button>
-                    );
-                  }
-                )}
-              </div>
-            </div>
-          );
-        })
+        <>
+          <ParticipantSection
+            participants={participantsByRole.unknown}
+            onRoleChange={updateRole}
+          />
+          <ParticipantSection
+            label="Клиент"
+            participants={participantsByRole.client}
+            onRoleChange={updateRole}
+          />
+          <ParticipantSection
+            label="Команда"
+            participants={participantsByRole.team}
+            onRoleChange={updateRole}
+          />
+          <ParticipantSection
+            label="Игнор"
+            participants={participantsByRole.ignore}
+            onRoleChange={updateRole}
+          />
+        </>
       )}
     </div>
   </div>

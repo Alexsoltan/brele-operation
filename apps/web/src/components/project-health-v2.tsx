@@ -54,8 +54,15 @@ function trendIcon(delta: number) {
 }
 
 function formatShortDate(value: string) {
+  const date = new Date(value);
+
+  return `${String(date.getDate()).padStart(2, "0")}.${String(
+    date.getMonth() + 1,
+  ).padStart(2, "0")}`;
+}
+
+function formatMonthTick(value: string) {
   return new Date(value).toLocaleDateString("ru-RU", {
-    day: "2-digit",
     month: "short",
   });
 }
@@ -260,20 +267,24 @@ function getDateTicks(range: Range, rangeStart: Date, rangeEnd: Date) {
     let cursor = new Date(rangeStart);
 
     while (cursor <= rangeEnd) {
-    pushTick(cursor);
-    cursor = addDays(cursor, 1);
+      pushTick(cursor);
+      cursor = addDays(cursor, 1);
+    }
+
+    return ticks;
   }
 
-  return ticks;
-}
-
   if (range === "month") {
-    pushTick(rangeStart);
-
     let cursor = nextMonday(rangeStart);
 
     while (cursor < rangeEnd) {
-      pushTick(cursor);
+      const daysToRangeEnd =
+        (rangeEnd.getTime() - cursor.getTime()) / (1000 * 60 * 60 * 24);
+
+      if (daysToRangeEnd >= 3) {
+        pushTick(cursor);
+      }
+
       cursor = addDays(cursor, 7);
     }
 
@@ -283,16 +294,16 @@ function getDateTicks(range: Range, rangeStart: Date, rangeEnd: Date) {
   }
 
   if (range === "quarter" || range === "year" || range === "all") {
-    pushTick(rangeStart);
+    let cursor = startOfMonth(rangeStart);
 
-    let cursor = addMonths(startOfMonth(rangeStart), 1);
+    if (cursor < rangeStart) {
+      cursor = addMonths(cursor, 1);
+    }
 
     while (cursor < rangeEnd) {
       pushTick(cursor);
       cursor = addMonths(cursor, 1);
     }
-
-    pushTick(rangeEnd);
 
     return ticks;
   }
@@ -308,7 +319,7 @@ export function ProjectHealthV2({
   meetings: Meeting[];
   healthPoints: HealthPoint[];
 }) {
-  const [range, setRange] = useState<Range>("month");
+  const [range, setRange] = useState<Range>("week");
 
   const score = project.healthScore ?? 100;
   const tone = healthTone(score);
@@ -452,7 +463,9 @@ export function ProjectHealthV2({
             </svg>
 
             <div className="absolute bottom-10 left-12 right-6 top-2">
-              {markerPoints.map((point) => (
+              {markerPoints
+                .filter((point) => point.id !== "baseline")
+                .map((point) => (
                 <div
                   key={point.id}
                   className="absolute h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#f7f7f4] shadow-[0_0_0_3px_rgba(31,31,31,0.95)]"
@@ -481,7 +494,9 @@ export function ProjectHealthV2({
                     left: `${point.x}%`,
                   }}
                 >
-                  {formatShortDate(point.date)}
+                  {range === "quarter" || range === "year" || range === "all"
+                    ? formatMonthTick(point.date)
+                    : formatShortDate(point.date)}
                 </span>
               ))}
             </div>
