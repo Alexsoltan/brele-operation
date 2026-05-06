@@ -161,10 +161,7 @@ export function AppSidebar() {
 
               {item.href === "/import" && importCount > 0 ? (
                 <span
-                  className={[
-                    "ml-auto min-w-6 rounded-full px-2 py-0.5 text-center text-xs font-semibold",
-                    isActive ? "bg-black text-white" : "bg-white text-black",
-                  ].join(" ")}
+                  className="ml-auto inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#d9ff3f] text-center text-sm font-bold leading-none text-black shadow-[0_0_0_1px_rgba(217,255,63,0.18),0_8px_24px_rgba(217,255,63,0.18)]"
                 >
                   {importCount > 99 ? "99+" : importCount}
                 </span>
